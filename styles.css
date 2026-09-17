@@ -487,6 +487,83 @@ h1, h2, h3, h4, h5, h6 {
 .login-note,.login-privacy { color:#64748b; font-size:.65rem; line-height:1.5; }
 .login-privacy { display:flex; align-items:center; justify-content:center; gap:.5rem; text-align:center; }
 
+/* 7. Daily Well-Being Monitoring & Early-Pressure Styles */
+.daily-checkin-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.25s ease;
+}
+
+.daily-checkin-panel:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 25px -4px rgba(79, 70, 229, 0.08);
+}
+
+.checkin-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+
+.checkin-pill-btn:hover {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #4338ca;
+  transform: translateY(-2px);
+}
+
+.checkin-pill-btn.selected {
+  background: #eef2ff;
+  border-color: #4f46e5;
+  color: #312e81;
+  box-shadow: 0 0 0 1px #4f46e5, 0 2px 8px rgba(79, 70, 229, 0.15);
+  font-weight: 700;
+}
+
+.early-signal-banner {
+  border-radius: 1.5rem;
+  padding: 1.2rem 1.4rem;
+  transition: all 0.25s ease;
+}
+
+.early-signal-banner.calm {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.early-signal-banner.steady {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.early-signal-banner.elevated {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.early-signal-banner.demanding {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -502,3 +579,526 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ==========================================================================
+   14. ROUTINE COUNTDOWN & ENCOURAGEMENT PLAYER STYLES
+   ========================================================================== */
+
+.routine-timer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.routine-timer-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 2rem;
+  padding: 2rem 1.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 40px rgba(99, 102, 241, 0.12);
+  text-align: center;
+  overflow: hidden;
+}
+
+.timer-circle-container {
+  position: relative;
+  width: 230px;
+  height: 230px;
+  margin: 1.5rem auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.timer-progress-circle-bg {
+  stroke: #e2e8f0;
+  fill: none;
+}
+
+.timer-progress-circle-bar {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease, stroke 0.4s ease;
+}
+
+.timer-progress-circle-bar.mode-full {
+  stroke: #4f46e5;
+}
+
+.timer-progress-circle-bar.mode-min {
+  stroke: #f59e0b;
+}
+
+.timer-pulse-glow {
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.timer-pulse-glow.mode-full {
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.1) 0%, rgba(99, 102, 241, 0) 70%);
+}
+
+.timer-pulse-glow.mode-min {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0) 70%);
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+.timer-digits {
+  font-family: 'Outfit', 'Plus Jakarta Sans', monospace;
+  font-size: 3.25rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.encouragement-card {
+  border-radius: 1.25rem;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #e0e7ff;
+  background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.encouragement-quote {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #312e81;
+  line-height: 1.45;
+}
+
+.timer-pace-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timer-pace-chip:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.timer-pace-chip.active {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+}
+
+.timer-pace-chip.active-min {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+}
+
+/* ==========================================================================
+   15. THEME WORK MODES & FUNCTIONAL FOCUS STATES
+   ========================================================================== */
+
+.work-mode-banner {
+  border-radius: 1.5rem;
+  padding: 1.15rem 1.4rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+[data-theme="porcelain"] .work-mode-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  border-color: #e0e7ff;
+}
+
+[data-theme="sage"] .work-mode-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #d1fae5;
+}
+
+[data-theme="azure"] .work-mode-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  border-color: #bae6fd;
+}
+
+[data-theme="sunset"] .work-mode-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+  border-color: #fed7aa;
+}
+
+.work-mode-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 1rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.work-mode-pill-btn:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.work-mode-pill-btn.active-porcelain {
+  background: #eef2ff;
+  border-color: #4f46e5;
+  color: #312e81;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+.work-mode-pill-btn.active-sage {
+  background: #ecfdf5;
+  border-color: #059669;
+  color: #064e3b;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+}
+
+.work-mode-pill-btn.active-azure {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0c4a6e;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+}
+
+.work-mode-pill-btn.active-sunset {
+  background: #ffedd5;
+  border-color: #ea580c;
+  color: #7c2d12;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.2);
+}
+
+.theme-mode-card {
+  border-radius: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-mode-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.theme-mode-card.selected {
+  border-width: 2px;
+}
+
+.theme-mode-card.selected.porcelain {
+  border-color: #4f46e5;
+  background: #f8faff;
+}
+
+.theme-mode-card.selected.sage {
+  border-color: #059669;
+  background: #f0fdf4;
+}
+
+.theme-mode-card.selected.azure {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.theme-mode-card.selected.sunset {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+/* ==========================================================================
+   DISTRACTION TRACKER & FOCUS SESSION DESIGN SYSTEM
+   ========================================================================== */
+
+.distraction-stat-card {
+  background: #ffffff;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.distraction-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+}
+
+/* Category Grid & Buttons */
+.category-select-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+
+.category-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.875rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+}
+
+.category-chip-btn:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.category-chip-btn.selected {
+  background: #eef2ff;
+  border-color: #4f46e5;
+  color: #312e81;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.18);
+  font-weight: 700;
+}
+
+/* Distraction Goal Tracker Bar (Supportive & Non-Punitive) */
+.distraction-goal-track {
+  width: 100%;
+  height: 0.65rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  overflow: hidden;
+  position: relative;
+}
+
+.distraction-goal-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease-out, background-color 0.3s ease;
+}
+
+.distraction-goal-fill.goal-green {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.distraction-goal-fill.goal-amber {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+.distraction-goal-fill.goal-soft-over {
+  background: linear-gradient(90deg, #f97316 0%, #ea580c 100%);
+}
+
+/* Habit vs Distraction Balance Horizontal Comparison */
+.balance-overview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.balance-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.balance-label {
+  width: 90px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.balance-track {
+  flex: 1;
+  height: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.balance-bar-study {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+  border-radius: 9999px;
+}
+
+.balance-bar-exercise {
+  height: 100%;
+  background: linear-gradient(90deg, #059669 0%, #10b981 100%);
+  border-radius: 9999px;
+}
+
+.balance-bar-breathing {
+  height: 100%;
+  background: linear-gradient(90deg, #0d9488 0%, #14b8a6 100%);
+  border-radius: 9999px;
+}
+
+.balance-bar-distraction {
+  height: 100%;
+  background: linear-gradient(90deg, #f97316 0%, #fb923c 100%);
+  border-radius: 9999px;
+}
+
+/* Daily Trend Visual Chart */
+.trend-bars-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 130px;
+  padding-top: 1rem;
+}
+
+.trend-bar-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.trend-bar-duo {
+  width: 100%;
+  max-width: 24px;
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 85px;
+}
+
+.trend-bar-focus {
+  flex: 1;
+  background: #6366f1;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+.trend-bar-distract {
+  flex: 1;
+  background: #fb923c;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+/* In-Session Distraction Button & Logging */
+.in-session-distract-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.in-session-distract-btn:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+  transform: scale(1.03);
+}
+
+/* Distraction Log Row Item */
+.distraction-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: all 0.15s ease;
+}
+
+.distraction-log-item:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+}
+
+/* Category Pill Badges */
+.category-badge-social { background: #fdf2f8; color: #db2777; border-color: #fbcfe8; }
+.category-badge-gaming { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+.category-badge-video { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.category-badge-chat { background: #ecfeff; color: #0891b2; border-color: #a5f3fc; }
+.category-badge-browsing { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+.category-badge-calls { background: #fefce8; color: #ca8a04; border-color: #fef08a; }
+.category-badge-sleep { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+.category-badge-food { background: #fff7ed; color: #ea580c; border-color: #fed7aa; }
+.category-badge-notifications { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
+.category-badge-other { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
+
+
+

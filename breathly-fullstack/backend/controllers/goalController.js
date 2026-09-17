@@ -3,7 +3,10 @@ const pool = require('../config/db');
 // GET /api/goals
 async function listGoals(req, res) {
   try {
-    const [rows] = await pool.query('SELECT * FROM user_goals WHERE user_id = ? ORDER BY created_at ASC', [req.userId]);
+    const { rows } = await pool.query(
+      'SELECT * FROM user_goals WHERE user_id = $1 ORDER BY created_at ASC',
+      [req.userId]
+    );
     res.json({ goals: rows });
   } catch (err) {
     console.error('List goals error:', err);
@@ -17,12 +20,13 @@ async function createGoal(req, res) {
     const { title, category, icon, targetDate } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
 
-    const [result] = await pool.query(
-      'INSERT INTO user_goals (user_id, title, category, icon, target_date) VALUES (?, ?, ?, ?, ?)',
+    const { rows } = await pool.query(
+      `INSERT INTO user_goals (user_id, title, category, icon, target_date)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
       [req.userId, title, category || 'Growth', icon || '🎯', targetDate || null]
     );
 
-    const [rows] = await pool.query('SELECT * FROM user_goals WHERE id = ?', [result.insertId]);
     res.json({ goal: rows[0] });
   } catch (err) {
     console.error('Create goal error:', err);
@@ -33,7 +37,11 @@ async function createGoal(req, res) {
 // DELETE /api/goals/:id
 async function deleteGoal(req, res) {
   try {
-    await pool.query('DELETE FROM user_goals WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    const { rowCount } = await pool.query(
+      'DELETE FROM user_goals WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Goal not found' });
     res.json({ success: true });
   } catch (err) {
     console.error('Delete goal error:', err);

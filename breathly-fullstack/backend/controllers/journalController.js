@@ -3,8 +3,8 @@ const pool = require('../config/db');
 // GET /api/journal
 async function listEntries(req, res) {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM journal_entries WHERE user_id = ? ORDER BY created_at DESC',
+    const { rows } = await pool.query(
+      'SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY created_at DESC',
       [req.userId]
     );
     res.json({ entries: rows });
@@ -18,11 +18,12 @@ async function listEntries(req, res) {
 async function createEntry(req, res) {
   try {
     const { content, mood } = req.body;
-    const [result] = await pool.query(
-      'INSERT INTO journal_entries (user_id, content, mood) VALUES (?, ?, ?)',
+    const { rows } = await pool.query(
+      `INSERT INTO journal_entries (user_id, content, mood)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
       [req.userId, content || null, mood || null]
     );
-    const [rows] = await pool.query('SELECT * FROM journal_entries WHERE id = ?', [result.insertId]);
     res.status(201).json({ entry: rows[0] });
   } catch (err) {
     console.error('createEntry error:', err.message);
@@ -34,17 +35,14 @@ async function createEntry(req, res) {
 async function updateEntry(req, res) {
   try {
     const { content, mood } = req.body;
-    const [existing] = await pool.query(
-      'SELECT id FROM journal_entries WHERE id = ? AND user_id = ?',
-      [req.params.id, req.userId]
-    );
-    if (existing.length === 0) return res.status(404).json({ error: 'Not found' });
-
-    await pool.query(
-      'UPDATE journal_entries SET content = ?, mood = ? WHERE id = ? AND user_id = ?',
+    const { rows } = await pool.query(
+      `UPDATE journal_entries
+       SET content = $1, mood = $2
+       WHERE id = $3 AND user_id = $4
+       RETURNING *`,
       [content || null, mood || null, req.params.id, req.userId]
     );
-    const [rows] = await pool.query('SELECT * FROM journal_entries WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ entry: rows[0] });
   } catch (err) {
     console.error('updateEntry error:', err.message);
@@ -55,11 +53,11 @@ async function updateEntry(req, res) {
 // DELETE /api/journal/:id
 async function deleteEntry(req, res) {
   try {
-    const [result] = await pool.query(
-      'DELETE FROM journal_entries WHERE id = ? AND user_id = ?',
+    const { rowCount } = await pool.query(
+      'DELETE FROM journal_entries WHERE id = $1 AND user_id = $2',
       [req.params.id, req.userId]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    if (rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch (err) {
     console.error('deleteEntry error:', err.message);

@@ -1,7 +1,7 @@
 {
   "name": "breathly-backend",
   "version": "1.0.0",
-  "description": "Custom Node/Express/MySQL backend for Breathly, using Google Identity Services for auth.",
+  "description": "Custom Node/Express/PostgreSQL backend for Reset Coach, using Google Identity Services for auth.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "mysql2": "^3.11.0",
+    "pg": "^8.11.5",
+    "connect-pg-simple": "^9.0.1",
     "google-auth-library": "^9.14.1",
     "dotenv": "^16.4.5",
     "cors": "^2.8.5",
-    "express-session": "^1.18.0",
-    "express-mysql-session": "^3.0.3"
+    "express-session": "^1.18.0"
   }
 }
