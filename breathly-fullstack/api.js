@@ -1,10 +1,20 @@
 // ==========================================================================
 // Breathly / Reset - Adaptive Habit & Wellbeing Coach Backend API Client
-// Talks to the Express/MySQL backend on http://localhost:5000
+// Talks to the Express/PostgreSQL backend on http://localhost:5000
 // Sessions are cookie-based, so every call uses credentials: 'include'.
 // ==========================================================================
 (function () {
-  const BASE_URL = 'http://localhost:5000/api';
+  const isLocal = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === ''
+  );
+
+  // In local development: use http://localhost:5000/api
+  // In production: use window.API_BASE_URL (if custom) or relative '/api'
+  const BASE_URL = isLocal
+    ? 'http://localhost:5000/api'
+    : (window.API_BASE_URL || '/api');
 
   async function request(path, options = {}) {
     const res = await fetch(BASE_URL + path, {
@@ -64,6 +74,27 @@
       request('/pressure-events', { method: 'POST', body: JSON.stringify(event) }),
     listPressureEvents: () => request('/pressure-events'),
 
+    // Daily Well-Being Monitoring (Contextual 1-3 Questions)
+    logDailyCheckIn: (checkInData) =>
+      request('/check-ins', { method: 'POST', body: JSON.stringify(checkInData) }),
+    getCheckInStatus: () => request('/check-ins/status'),
+    getRecentCheckIns: () => request('/check-ins/recent'),
+
+    // Distraction Tracking
+    listDistractions: () => request('/distractions'),
+    getDistractionSummary: () => request('/distractions/summary'),
+    createDistraction: (data) =>
+      request('/distractions', { method: 'POST', body: JSON.stringify(data) }),
+    deleteDistraction: (id) =>
+      request(`/distractions/${id}`, { method: 'DELETE' }),
+
+    // Focus Sessions
+    listFocusSessions: () => request('/focus-sessions'),
+    createFocusSession: (data) =>
+      request('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
+    deleteFocusSession: (id) =>
+      request(`/focus-sessions/${id}`, { method: 'DELETE' }),
+
     // Journal & Resets
     listJournal: () => request('/journal'),
     createJournalEntry: (content, mood) =>
@@ -76,7 +107,7 @@
 
     // Preferences
     getPreferences: () => request('/preferences'),
-    updatePreferences: (theme, notificationEnabled) =>
-      request('/preferences', { method: 'PUT', body: JSON.stringify({ theme, notificationEnabled }) })
+    updatePreferences: (theme, notificationEnabled, dailyDistractionGoalMinutes) =>
+      request('/preferences', { method: 'PUT', body: JSON.stringify({ theme, notificationEnabled, dailyDistractionGoalMinutes }) })
   };
 })();
