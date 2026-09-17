@@ -11,10 +11,10 @@
   );
 
   // In local development: use http://localhost:5000/api
-  // In production: use window.API_BASE_URL (if custom) or relative '/api'
+  // In production: use https://mindpace.onrender.com/api
   const BASE_URL = isLocal
     ? 'http://localhost:5000/api'
-    : (window.API_BASE_URL || '/api');
+    : (window.API_BASE_URL || 'https://mindpace.onrender.com/api');
 
   async function request(path, options = {}) {
     const res = await fetch(BASE_URL + path, {
