@@ -1020,6 +1020,121 @@ function App() {
     todayCheckIn: null
   });
 
+  // Load all user profile, habits, check-ins, sessions, and preferences from PostgreSQL
+  const loadUserDataFromServer = async () => {
+    if (!window.api) return;
+    try {
+      // 1. Profile & onboarding
+      if (window.api.getProfile) {
+        try {
+          const profileRes = await window.api.getProfile();
+          if (profileRes && profileRes.hasCompletedOnboarding && profileRes.profile) {
+            setAppState(prev => ({
+              ...prev,
+              profile: { ...profileRes.profile, isCompleted: true }
+            }));
+          }
+        } catch (e) {}
+      }
+
+      // 2. Habits from PostgreSQL
+      if (window.api.listHabits) {
+        try {
+          const habitsRes = await window.api.listHabits();
+          if (habitsRes && Array.isArray(habitsRes.habits) && habitsRes.habits.length > 0) {
+            setAppState(prev => ({
+              ...prev,
+              habits: habitsRes.habits.map(h => ({
+                id: h.id || h.title.toLowerCase().replace(/\s+/g, '-'),
+                title: h.title,
+                goalId: h.goal_id,
+                category: h.category || 'Focus',
+                icon: h.icon || '⚡',
+                targetVal: h.target_val || 30,
+                targetUnit: h.target_unit || 'min',
+                minModeVal: h.min_mode_val || 5,
+                minModeUnit: h.min_mode_unit || 'min',
+                preferredTime: h.preferred_time || 'anytime',
+                currentStreak: h.current_streak || 0,
+                bestStreak: h.best_streak || 0,
+                todayStatus: 'none'
+              }))
+            }));
+          }
+        } catch (e) {}
+      }
+
+      // 3. Daily check-in status & history
+      if (window.api.getCheckInStatus) {
+        try {
+          const statusRes = await window.api.getCheckInStatus();
+          if (statusRes) {
+            setCheckInStatus({
+              hasCheckedInToday: !!statusRes.hasCheckedInToday,
+              todayCheckIn: statusRes.todayCheckIn || null
+            });
+          }
+        } catch (e) {}
+      }
+
+      if (window.api.getRecentCheckIns) {
+        try {
+          const recentRes = await window.api.getRecentCheckIns();
+          if (recentRes && recentRes.checkIns) {
+            setAppState(prev => ({ ...prev, dailyCheckIns: recentRes.checkIns }));
+          }
+        } catch (e) {}
+      }
+
+      // 4. Distractions
+      if (window.api.listDistractions) {
+        try {
+          const distRes = await window.api.listDistractions();
+          if (distRes && Array.isArray(distRes.distractions)) {
+            setAppState(prev => ({ ...prev, distractions: distRes.distractions }));
+          }
+        } catch (e) {}
+      }
+
+      // 5. Focus Sessions
+      if (window.api.listFocusSessions) {
+        try {
+          const focusRes = await window.api.listFocusSessions();
+          if (focusRes && Array.isArray(focusRes.sessions)) {
+            setAppState(prev => ({ ...prev, focusSessions: focusRes.sessions }));
+          }
+        } catch (e) {}
+      }
+
+      // 6. Preferences
+      if (window.api.getPreferences) {
+        try {
+          const prefRes = await window.api.getPreferences();
+          if (prefRes && prefRes.preferences) {
+            setAppState(prev => ({
+              ...prev,
+              theme: prefRes.preferences.theme || prev.theme,
+              soundEnabled: prefRes.preferences.notification_enabled !== false,
+              distractionGoalMinutes: Number(prefRes.preferences.daily_distraction_goal_minutes) || prev.distractionGoalMinutes || 45
+            }));
+          }
+        } catch (e) {}
+      }
+
+      // 7. Mini Game Sessions
+      if (window.api.listGameSessions) {
+        try {
+          const gameRes = await window.api.listGameSessions();
+          if (gameRes && Array.isArray(gameRes.sessions)) {
+            setAppState(prev => ({ ...prev, gameSessions: gameRes.sessions }));
+          }
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.warn('Error loading server data:', err);
+    }
+  };
+
   // Verify server session and load user profile & habits from PostgreSQL
   useEffect(() => {
     let cancelled = false;
@@ -1028,92 +1143,7 @@ function App() {
         .then(({ user: sessionUser }) => {
           if (cancelled) return;
           setUser(sessionUser);
-
-          // If authenticated, fetch profile from PostgreSQL to check if onboarding was completed
-          window.api.getProfile()
-            .then(profileRes => {
-              if (cancelled) return;
-              if (profileRes && profileRes.hasCompletedOnboarding && profileRes.profile) {
-                setAppState(prev => ({
-                  ...prev,
-                  profile: { ...profileRes.profile, isCompleted: true }
-                }));
-              }
-            })
-            .catch(console.warn);
-
-          // Fetch daily check-in status
-          window.api.getCheckInStatus()
-            .then(statusRes => {
-              if (cancelled) return;
-              if (statusRes) {
-                setCheckInStatus({
-                  hasCheckedInToday: !!statusRes.hasCheckedInToday,
-                  todayCheckIn: statusRes.todayCheckIn || null
-                });
-              }
-            })
-            .catch(console.warn);
-
-          // Fetch recent check-ins
-          window.api.getRecentCheckIns()
-            .then(recentRes => {
-              if (cancelled) return;
-              if (recentRes && recentRes.checkIns) {
-                setAppState(prev => ({ ...prev, dailyCheckIns: recentRes.checkIns }));
-              }
-            })
-            .catch(console.warn);
-
-          // Fetch distractions & focus sessions if on server
-          if (window.api.listDistractions) {
-            window.api.listDistractions()
-              .then(distRes => {
-                if (cancelled) return;
-                if (distRes && Array.isArray(distRes.distractions)) {
-                  setAppState(prev => ({ ...prev, distractions: distRes.distractions }));
-                }
-              })
-              .catch(console.warn);
-          }
-
-          if (window.api.listFocusSessions) {
-            window.api.listFocusSessions()
-              .then(focusRes => {
-                if (cancelled) return;
-                if (focusRes && Array.isArray(focusRes.sessions)) {
-                  setAppState(prev => ({ ...prev, focusSessions: focusRes.sessions }));
-                }
-              })
-              .catch(console.warn);
-          }
-
-          if (window.api.getPreferences) {
-            window.api.getPreferences()
-              .then(prefRes => {
-                if (cancelled) return;
-                if (prefRes && prefRes.preferences) {
-                  setAppState(prev => ({
-                    ...prev,
-                    theme: prefRes.preferences.theme || prev.theme,
-                    soundEnabled: prefRes.preferences.notification_enabled !== false,
-                    distractionGoalMinutes: Number(prefRes.preferences.daily_distraction_goal_minutes) || prev.distractionGoalMinutes || 45
-                  }));
-                }
-              })
-              .catch(console.warn);
-          }
-
-          if (window.api.listGameSessions) {
-            window.api.listGameSessions()
-              .then(gameRes => {
-                if (cancelled) return;
-                if (gameRes && Array.isArray(gameRes.sessions)) {
-                  setAppState(prev => ({ ...prev, gameSessions: gameRes.sessions }));
-                }
-              })
-              .catch(console.warn);
-          }
+          loadUserDataFromServer();
         })
         .catch(() => {
           if (!cancelled) setUser(null);
@@ -1321,6 +1351,9 @@ function App() {
       const { user: verifiedUser } = await window.api.loginWithGoogle(credentialResponse.credential);
       setUser(verifiedUser);
       if (window.confetti) window.confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+
+      // Immediately hydrate all data from PostgreSQL for this user on any new device
+      await loadUserDataFromServer();
 
       // Check if user has already completed onboarding on the server
       try {
