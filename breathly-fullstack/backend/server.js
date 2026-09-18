@@ -17,6 +17,7 @@ const preferencesRoutes = require('./routes/preferences');
 const checkInRoutes = require('./routes/checkIns');
 const distractionRoutes = require('./routes/distractions');
 const focusSessionRoutes = require('./routes/focusSessions');
+const gameRoutes = require('./routes/games');
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use('/api/preferences', preferencesRoutes);
 app.use('/api/check-ins', checkInRoutes);
 app.use('/api/distractions', distractionRoutes);
 app.use('/api/focus-sessions', focusSessionRoutes);
+app.use('/api/games', gameRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'Personal Adaptive Habit & Wellbeing Coach' }));
 

@@ -1100,5 +1100,248 @@ h1, h2, h3, h4, h5, h6 {
 .category-badge-notifications { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
 .category-badge-other { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; }
 
+/* ==========================================================================
+   MINI GAMES & BUBBLE RHYTHM DESIGN SYSTEM
+   ========================================================================== */
+
+/* Mini Games Library Card */
+.minigame-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.minigame-card:hover {
+  transform: translateY(-3px);
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 30px -5px rgba(15, 23, 42, 0.08);
+}
+
+.minigame-card.featured {
+  border-color: #c7d2fe;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f7ff 100%);
+}
+
+.minigame-card.featured:hover {
+  border-color: #818cf8;
+  box-shadow: 0 14px 34px -4px rgba(99, 102, 241, 0.12);
+}
+
+/* Bubble Rhythm Game Canvas Container */
+.game-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 780px;
+  height: 520px;
+  margin: 0 auto;
+  border-radius: 2rem;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #f0f9ff 0%, #e0f2fe 50%, #dbeafe 100%);
+  border: 2px solid #bae6fd;
+  box-shadow: 0 20px 45px -10px rgba(2, 132, 199, 0.15), inset 0 2px 10px rgba(255, 255, 255, 0.8);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (max-width: 640px) {
+  .game-canvas-wrapper {
+    height: 440px;
+    border-radius: 1.5rem;
+  }
+}
+
+.game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+}
+
+/* Floating Game HUD */
+.game-hud-bar {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.game-hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.game-hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.game-hud-btn:hover {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  transform: scale(1.05);
+}
+
+.game-hud-btn.active {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
+}
+
+/* Mode Selection Cards */
+.game-mode-select-card {
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.game-mode-select-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.game-mode-select-card.selected {
+  border-color: #4f46e5;
+  background: #f5f3ff;
+  box-shadow: 0 0 0 1px #4f46e5, 0 8px 24px rgba(79, 70, 229, 0.1);
+}
+
+/* Rhythm Preset Chips */
+.rhythm-preset-chip {
+  flex: 1;
+  padding: 0.6rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rhythm-preset-chip:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.rhythm-preset-chip.active {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+/* Rating Question Pills */
+.feeling-rating-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.85rem 0.5rem;
+  border-radius: 1.25rem;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feeling-rating-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  transform: translateY(-2px);
+}
+
+.feeling-rating-btn.selected {
+  border-color: #059669;
+  background: #ecfdf5;
+  color: #065f46;
+  box-shadow: 0 0 0 1px #059669, 0 6px 18px rgba(5, 150, 105, 0.15);
+}
+
+.enjoyment-rating-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.enjoyment-rating-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.enjoyment-rating-btn.selected {
+  border-color: #e11d48;
+  background: #fff1f2;
+  color: #be123c;
+  font-weight: 800;
+}
+
+/* Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  .minigame-card,
+  .game-mode-select-card,
+  .feeling-rating-btn,
+  .game-hud-btn {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+
 
 

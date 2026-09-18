@@ -250,3 +250,21 @@ CREATE TABLE IF NOT EXISTS "session" (
   CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
 );
 CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+
+-- 15. Mini-Game Well-Being Sessions (Bubble Rhythm & future mini games)
+CREATE TABLE IF NOT EXISTS game_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  game_name VARCHAR(100) NOT NULL DEFAULT 'Bubble Rhythm',
+  game_mode VARCHAR(50) NOT NULL,
+  rhythm_preset VARCHAR(50) NULL,
+  duration_seconds INT NOT NULL DEFAULT 0,
+  bubbles_popped INT NOT NULL DEFAULT 0,
+  completed BOOLEAN NOT NULL DEFAULT TRUE,
+  feeling VARCHAR(50) NULL,
+  enjoyment VARCHAR(50) NULL,
+  played_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_game_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_game_user_played ON game_sessions(user_id, played_at);
+

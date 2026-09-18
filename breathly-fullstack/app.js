@@ -195,7 +195,8 @@ const DEFAULT_INITIAL_STATE = {
   failureLogs: [],
   stressCheckIns: [],
   upcomingPressures: [],
-  resetsHistory: []
+  resetsHistory: [],
+  gameSessions: []
 };
 
 // Sanitizer to clean legacy demo/mock items from browser localStorage
@@ -236,6 +237,13 @@ function sanitizeLoadedState(savedState) {
     sanitized.resetsHistory = sanitized.resetsHistory.filter(r => r && !String(r.id || '').startsWith('reset-'));
   } else {
     sanitized.resetsHistory = [];
+  }
+
+  // Filter out any legacy mock game sessions with fake- IDs
+  if (Array.isArray(sanitized.gameSessions)) {
+    sanitized.gameSessions = sanitized.gameSessions.filter(g => g && !String(g.id || '').startsWith('fake-'));
+  } else {
+    sanitized.gameSessions = [];
   }
 
   return sanitized;
@@ -381,6 +389,242 @@ class CalmAudioEngine {
 }
 
 const audioService = new CalmAudioEngine();
+
+// ==========================================================================
+// PROCEDURAL BUBBLE RHYTHM AUDIO SYNTHESIZER
+// Web Audio API harmonic sound generator for Bubble Rhythm mini-game
+// ==========================================================================
+class BubbleRhythmAudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.soundGain = null;
+    this.musicGain = null;
+    this.soundEnabled = true;
+    this.musicEnabled = true;
+    this.rhythmInterval = null;
+    this.currentPreset = 'calm';
+    this.currentStep = 0;
+    // C Major Pentatonic scale (C4, D4, E4, G4, A4, C5, D5, E5, G5, A5)
+    this.scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+    this.chordRoots = {
+      calm: [
+        [261.63, 329.63, 392.00, 493.88], // Cmaj7
+        [349.23, 440.00, 523.25, 659.25], // Fmaj7
+        [220.00, 261.63, 329.63, 392.00], // Am7
+        [196.00, 261.63, 293.66, 392.00]  // Gsus4
+      ],
+      flow: [
+        [293.66, 369.99, 440.00, 554.37], // Dmaj7
+        [392.00, 493.88, 587.33, 739.99], // Gmaj7
+        [246.94, 293.66, 369.99, 440.00], // Bm7
+        [220.00, 293.66, 329.63, 440.00]  // A7sus4
+      ],
+      energy: [
+        [329.63, 415.30, 493.88, 622.25], // Emaj7
+        [440.00, 554.37, 659.25, 830.61], // Amaj7
+        [277.18, 329.63, 415.30, 493.88], // C#m7
+        [246.94, 329.63, 369.99, 493.88]  // Bsus4
+      ]
+    };
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        this.soundGain = this.ctx.createGain();
+        this.soundGain.gain.setValueAtTime(this.soundEnabled ? 0.7 : 0, this.ctx.currentTime);
+        this.soundGain.connect(this.masterGain);
+
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.setValueAtTime(this.musicEnabled ? 0.4 : 0, this.ctx.currentTime);
+        this.musicGain.connect(this.masterGain);
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  setSoundEnabled(val) {
+    this.soundEnabled = !!val;
+    if (this.soundGain && this.ctx) {
+      this.soundGain.gain.setTargetAtTime(this.soundEnabled ? 0.7 : 0, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  setMusicEnabled(val) {
+    this.musicEnabled = !!val;
+    if (this.musicGain && this.ctx) {
+      this.musicGain.gain.setTargetAtTime(this.musicEnabled ? 0.4 : 0, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  playPop(pitchIndex = null, isRhythmHit = false) {
+    if (!this.soundEnabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+
+      let freq;
+      if (typeof pitchIndex === 'number' && pitchIndex >= 0) {
+        freq = this.scale[pitchIndex % this.scale.length];
+      } else {
+        const randIdx = Math.floor(Math.random() * this.scale.length);
+        freq = this.scale[randIdx];
+      }
+
+      // Crisp bubble droplet pop oscillator (rapid downward frequency glide + resonance)
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(freq * 1.5, t);
+      filter.Q.setValueAtTime(3.0, t);
+
+      osc.type = isRhythmHit ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(freq * 1.8, t);
+      osc.frequency.exponentialRampToValueAtTime(freq, t + 0.035);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(isRhythmHit ? 0.35 : 0.25, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + (isRhythmHit ? 0.45 : 0.28));
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.soundGain);
+
+      osc.start(t);
+      osc.stop(t + 0.5);
+
+      // Harmonic crystalline shimmer for rhythm hits
+      if (isRhythmHit) {
+        const chime = this.ctx.createOscillator();
+        const chimeGain = this.ctx.createGain();
+        chime.type = 'sine';
+        chime.frequency.setValueAtTime(freq * 2, t);
+        chimeGain.gain.setValueAtTime(0.001, t);
+        chimeGain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+        chimeGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+        chime.connect(chimeGain);
+        chimeGain.connect(this.soundGain);
+        chime.start(t);
+        chime.stop(t + 0.65);
+      }
+    } catch (e) {
+      console.warn('Pop sound error:', e);
+    }
+  }
+
+  playBeatMetronome(isAccent = false) {
+    if (!this.musicEnabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(isAccent ? 360 : 240, t);
+      osc.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(isAccent ? 0.08 : 0.04, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.musicGain);
+
+      osc.start(t);
+      osc.stop(t + 0.09);
+    } catch (e) {}
+  }
+
+  playChordPad(preset = 'calm', chordIndex = 0) {
+    if (!this.musicEnabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const chords = this.chordRoots[preset] || this.chordRoots.calm;
+      const chord = chords[chordIndex % chords.length];
+
+      chord.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * (idx === 0 ? 0.5 : 1), t);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(600 + idx * 80, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.035, t + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.musicGain);
+
+        osc.start(t);
+        osc.stop(t + 3.0);
+      });
+    } catch (e) {}
+  }
+
+  startRhythm(preset = 'calm', onBeatCallback = null) {
+    this.stopRhythm();
+    this.init();
+    this.currentPreset = preset;
+    this.currentStep = 0;
+
+    // BPM: calm=64, flow=84, energy=100
+    const bpmMap = { calm: 64, flow: 84, energy: 100 };
+    const bpm = bpmMap[preset] || 75;
+    const intervalMs = (60 / bpm) * 1000;
+
+    this.playBeatMetronome(true);
+    this.playChordPad(preset, 0);
+    if (onBeatCallback) onBeatCallback(0, intervalMs);
+
+    this.rhythmInterval = setInterval(() => {
+      this.currentStep++;
+      const isAccent = this.currentStep % 4 === 0;
+      this.playBeatMetronome(isAccent);
+
+      if (isAccent) {
+        const chordIdx = Math.floor(this.currentStep / 4) % 4;
+        this.playChordPad(preset, chordIdx);
+      }
+
+      if (onBeatCallback) onBeatCallback(this.currentStep, intervalMs);
+    }, intervalMs);
+  }
+
+  stopRhythm() {
+    if (this.rhythmInterval) {
+      clearInterval(this.rhythmInterval);
+      this.rhythmInterval = null;
+    }
+  }
+
+  dispose() {
+    this.stopRhythm();
+  }
+}
+
+const bubbleAudioService = new BubbleRhythmAudioEngine();
 
 // ==========================================================================
 // EXPANDED TAILORED WELL-BEING & RESET ACTIVITIES
@@ -859,6 +1103,17 @@ function App() {
               })
               .catch(console.warn);
           }
+
+          if (window.api.listGameSessions) {
+            window.api.listGameSessions()
+              .then(gameRes => {
+                if (cancelled) return;
+                if (gameRes && Array.isArray(gameRes.sessions)) {
+                  setAppState(prev => ({ ...prev, gameSessions: gameRes.sessions }));
+                }
+              })
+              .catch(console.warn);
+          }
         })
         .catch(() => {
           if (!cancelled) setUser(null);
@@ -901,6 +1156,7 @@ function App() {
   const [currentView, setCurrentView] = useState(() => {
     return appState.profile?.isCompleted ? 'dashboard' : 'landing';
   });
+  const [selectedMiniGameMode, setSelectedMiniGameMode] = useState('rhythm_pop');
 
   // Modals
   const [showHabitModal, setShowHabitModal] = useState(false);
@@ -922,6 +1178,35 @@ function App() {
   const earlySignals = useMemo(() => evaluateEarlyStressSignals(appState, appState.dailyCheckIns), [appState]);
   const wellbeing = useMemo(() => calculateWellbeingIndex(appState), [appState]);
   const insights = useMemo(() => generateAIInsights(appState), [appState]);
+
+  // --- MINI GAME ACTION HANDLER ---
+  const handleSaveGameSession = async (sessionData) => {
+    const newSession = {
+      id: 'game-' + Date.now(),
+      game_name: sessionData.gameName || 'Bubble Rhythm',
+      game_mode: sessionData.gameMode || 'rhythm_pop',
+      rhythm_preset: sessionData.rhythmPreset || null,
+      duration_seconds: Number(sessionData.durationSeconds) || 0,
+      bubbles_popped: Number(sessionData.bubblesPopped) || 0,
+      completed: true,
+      feeling: sessionData.feeling || null,
+      enjoyment: sessionData.enjoyment || null,
+      played_at: new Date().toISOString()
+    };
+
+    setAppState(prev => ({
+      ...prev,
+      gameSessions: [newSession, ...(prev.gameSessions || [])]
+    }));
+
+    if (user && window.api?.saveGameSession) {
+      try {
+        await window.api.saveGameSession(sessionData);
+      } catch (err) {
+        console.warn('Sync game session error:', err);
+      }
+    }
+  };
 
   // --- DISTRACTION & FOCUS SESSION ACTION HANDLERS ---
   const handleSaveDistraction = async (distData) => {
@@ -1445,10 +1730,36 @@ function App() {
             onOpenGoals={() => setCurrentView('goals')}
             onOpenWeeklyReport={() => setCurrentView('weekly-report')}
             onOpenDistractions={() => setCurrentView('distractions')}
+            onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
+            onOpenMiniGamesHub={() => setCurrentView('minigames')}
             onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
             onAddDistraction={() => setShowAddDistractionModal(true)}
             onAddPressure={() => setShowPressureModal(true)}
             onSignIn={() => setCurrentView('login')}
+          />
+        )}
+
+        {currentView === 'minigames' && (
+          <MiniGamesHubView
+            user={user}
+            gameSessions={appState.gameSessions || []}
+            onLaunchGame={(gameKey, mode) => {
+              setSelectedMiniGameMode(mode || 'rhythm_pop');
+              setCurrentView('bubble-rhythm');
+            }}
+            onBack={() => setCurrentView('dashboard')}
+            onSignIn={() => setCurrentView('login')}
+          />
+        )}
+
+        {currentView === 'bubble-rhythm' && (
+          <BubbleRhythmGame
+            user={user}
+            initialMode={selectedMiniGameMode || 'rhythm_pop'}
+            initialPreset="calm"
+            initialDuration={180}
+            onSaveSession={handleSaveGameSession}
+            onBack={() => setCurrentView('minigames')}
           />
         )}
 
@@ -1484,6 +1795,7 @@ function App() {
             onQuickReset={startQuickReset}
             onBack={() => setCurrentView('dashboard')}
             onOpenDistractions={() => setCurrentView('distractions')}
+            onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
             onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Focused Study Sprint', durationMin: 25 })}
             onActivateMinModeAll={() => {
               setAppState(prev => ({
@@ -1747,6 +2059,20 @@ function HeaderNav({
           >
             <i data-lucide="target" className={`w-3.5 h-3.5 ${currentView === 'distractions' ? 'text-white' : 'text-amber-600'}`}></i>
             <span className="hidden sm:inline">Focus & Distractions</span>
+          </button>
+
+          {/* Mini Games CTA */}
+          <button
+            onClick={() => setCurrentView('minigames')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+              currentView === 'minigames' || currentView === 'bubble-rhythm'
+                ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/25'
+                : 'bg-white border-slate-200 hover:border-purple-300 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Mindful mini-games and relaxation breaks"
+          >
+            <i data-lucide="gamepad-2" className={`w-3.5 h-3.5 ${currentView === 'minigames' || currentView === 'bubble-rhythm' ? 'text-white' : 'text-purple-600'}`}></i>
+            <span className="hidden sm:inline">Mini Games</span>
           </button>
 
           {/* AI Coach Button */}
@@ -2716,6 +3042,9 @@ function DashboardView({
   distractions = [],
   focusSessions = [],
   distractionGoalMinutes = 45,
+  gameSessions = [],
+  onOpenMiniGames,
+  onOpenMiniGamesHub,
   onSaveDailyCheckIn,
   onToggleHabit,
   onAddHabit,
@@ -2734,11 +3063,12 @@ function DashboardView({
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [habits, wellbeing, upcomingPressures, earlySignals, theme, distractions, focusSessions]);
+  }, [habits, wellbeing, upcomingPressures, earlySignals, theme, distractions, focusSessions, gameSessions]);
 
   const completedCount = habits.filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length;
   const totalHabits = habits.length;
   const activeModeConfig = THEME_WORK_MODES[theme] || THEME_WORK_MODES.porcelain;
+  const recentGameSessions = gameSessions || [];
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
@@ -2798,13 +3128,22 @@ function DashboardView({
               </div>
             </div>
 
-            <button
-              onClick={() => onQuickReset(earlySignals.recommendedActivity)}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5 self-start sm:self-center"
-            >
-              <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
-              <span>{earlySignals.recommendedActivity?.title || 'Start Tailored Reset'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5"
+              >
+                <span>🫧 2-Min Bubble Break</span>
+              </button>
+
+              <button
+                onClick={() => onQuickReset(earlySignals.recommendedActivity)}
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5 self-start sm:self-center"
+              >
+                <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
+                <span>{earlySignals.recommendedActivity?.title || 'Start Tailored Reset'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -2862,6 +3201,58 @@ function DashboardView({
         onAddDistraction={onAddDistraction}
         onSignIn={onSignIn}
       />
+
+      {/* NEW FEATURE: Mindful Mini-Breaks & Games Recommendation Widget */}
+      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50/40 via-white to-indigo-50/30 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-xl shadow-2xs">
+              🎮
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-900">Mindful Mini-Breaks & Games</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                  New
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Short 2–3 minute non-competitive mental breaks to clear mental fatigue and reset focus
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onOpenMiniGames && onOpenMiniGames('free_pop')}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all flex items-center gap-1"
+            >
+              <span>🫧 Free Pop</span>
+            </button>
+            <button
+              onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm shadow-purple-500/20 transition-all flex items-center gap-1.5"
+            >
+              <i data-lucide="play" className="w-3.5 h-3.5"></i>
+              <span>Play Bubble Rhythm</span>
+            </button>
+          </div>
+        </div>
+
+        {recentGameSessions.length > 0 && (
+          <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-xs text-slate-600">
+            <span className="font-semibold text-purple-900">
+              ⚡ {recentGameSessions.length} sessions completed • {Math.round(recentGameSessions.reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0) / 60)}m total mental pause
+            </span>
+            <button
+              onClick={onOpenMiniGamesHub}
+              className="font-bold text-purple-700 hover:text-purple-900 flex items-center gap-1"
+            >
+              <span>View Game Stats & History →</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Daily Well-Being Monitoring Widget */}
       <DailyCheckInCard
@@ -3824,6 +4215,7 @@ function CoachView({
   onQuickReset,
   onBack,
   onOpenDistractions,
+  onOpenMiniGames,
   onStartFocusSession,
   onActivateMinModeAll
 }) {
@@ -3842,6 +4234,7 @@ function CoachView({
   }, [messages]);
 
   const quickPrompts = [
+    { label: "🫧 2-minute Bubble Rhythm break", prompt: "I need a quick 2-minute mental break. How does Bubble Rhythm help?" },
     { label: "📱 Reduce phone & app distractions", prompt: "How can I reduce phone, social media, and notification distractions while studying?" },
     { label: "🎯 Plan a 25m Pomodoro focus sprint", prompt: "Help me structure a focused 25-minute study sprint with zero distractions." },
     { label: "😴 Exhausted & low energy today", prompt: "I feel completely exhausted and have no energy today." },
@@ -3862,7 +4255,10 @@ function CoachView({
       let actionType = null;
 
       const lower = text.toLowerCase();
-      if (lower.includes('distract') || lower.includes('phone') || lower.includes('social') || lower.includes('notification')) {
+      if (lower.includes('bubble') || lower.includes('mini game') || lower.includes('game break') || lower.includes('rhythm')) {
+        aiReply = `Bubble Rhythm is designed specifically for mindful recovery. By synchronizing bubble pops with harmonic procedural pentatonic tones (64-84 BPM), it resets working memory without competitive pressure or screen stress.`;
+        actionType = 'play-bubble-rhythm';
+      } else if (lower.includes('distract') || lower.includes('phone') || lower.includes('social') || lower.includes('notification')) {
         const topDists = appState.distractions || [];
         const topCat = topDists.length > 0 ? topDists[0].category : 'Social Media';
         aiReply = `Distractions like "${topCat}" typically peak during cognitive friction or energy dips. I recommend putting your phone in another room and starting a 25-minute dedicated Focus Sprint. If you feel tired, take a 60-second breathing reset first.`;
@@ -3871,7 +4267,7 @@ function CoachView({
         aiReply = `Let's launch a 25-minute Pomodoro focus block right now! During the session, you can log any interruptions with 1 click without losing your timer rhythm. Ready?`;
         actionType = 'start-focus-sprint';
       } else if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('fatigue')) {
-        aiReply = `I hear you. When energy is depleted, forcing a full 30-minute task creates friction and burnout. Let's switch today's remaining habits to Minimum Mode (2-minute micro-doses) and schedule a 4-7-8 relaxing breath.`;
+        aiReply = `I hear you. When energy is depleted, forcing a full 30-minute task creates friction and burnout. Let's switch today's remaining habits to Minimum Mode (2-minute micro-doses) or take a 2-minute Bubble Rhythm break.`;
         actionType = 'min-mode-all';
       } else if (lower.includes('overwhelm') || lower.includes('deadline') || lower.includes('exam')) {
         aiReply = `During heavy exam or deliverable crunch, cognitive bandwidth is precious. Protect your sleep boundary first. I suggest using Box Breathing (4-4-4-4) for laser focus and scaling down non-essential habits.`;
@@ -3916,6 +4312,18 @@ function CoachView({
               <div className={m.sender === 'user' ? 'coach-bubble-user max-w-md' : 'coach-bubble-ai max-w-lg'}>
                 <p className="text-sm leading-relaxed">{m.text}</p>
 
+                {m.actionType === 'play-bubble-rhythm' && (
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                      className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <i data-lucide="play" className="w-3.5 h-3.5"></i>
+                      <span>🫧 Play Bubble Rhythm (2m)</span>
+                    </button>
+                  </div>
+                )}
+
                 {m.actionType === 'start-focus-sprint' && (
                   <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
                     <button
@@ -3953,6 +4361,12 @@ function CoachView({
                       className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
                     >
                       <span>⚡ Switch All to Minimum Mode</span>
+                    </button>
+                    <button
+                      onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                      className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200 flex items-center gap-1.5 transition-all"
+                    >
+                      <span>🫧 2-Min Bubble Break</span>
                     </button>
                     <button
                       onClick={() => onQuickReset(ACTIVITIES['breathing-478'])}
@@ -4831,6 +5245,1194 @@ function AddDistractionModal({ onSave, onClose }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
+// 8D. BUBBLE RHYTHM MINI-GAME (FREE POP & RHYTHM POP MODES)
+// ==========================================================================
+
+function BubbleRhythmGame({
+  user,
+  initialMode = 'rhythm_pop',
+  initialPreset = 'calm',
+  initialDuration = 180,
+  onSaveSession,
+  onBack
+}) {
+  const [gameState, setGameState] = useState('setup'); // 'setup' | 'playing' | 'paused' | 'completed'
+  const [gameMode, setGameMode] = useState(initialMode); // 'free_pop' | 'rhythm_pop'
+  const [rhythmPreset, setRhythmPreset] = useState(initialPreset); // 'calm' | 'flow' | 'energy'
+  const [durationSeconds, setDurationSeconds] = useState(initialDuration); // 120, 180, 300
+  const [timeLeft, setTimeLeft] = useState(initialDuration);
+  const [bubblesPopped, setBubblesPopped] = useState(0);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(false);
+
+  // Post-game reflection feedback
+  const [feeling, setFeeling] = useState('better'); // 'better' | 'same' | 'stressed'
+  const [enjoyment, setEnjoyment] = useState('yes'); // 'yes' | 'little' | 'no'
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+
+  const canvasRef = useRef(null);
+  const animFrameIdRef = useRef(null);
+  const gameStateRef = useRef(gameState);
+  const bubblesRef = useRef([]);
+  const particlesRef = useRef([]);
+  const ripplesRef = useRef([]);
+  const floatingTextsRef = useRef([]);
+  const lastSpawnRef = useRef(0);
+  const beatCountRef = useRef(0);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [gameState, gameMode, rhythmPreset, soundMuted, musicMuted, feeling, enjoyment]);
+
+  // Audio mute sync
+  useEffect(() => {
+    bubbleAudioService.setSoundEnabled(!soundMuted);
+  }, [soundMuted]);
+
+  useEffect(() => {
+    bubbleAudioService.setMusicEnabled(!musicMuted);
+  }, [musicMuted]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      bubbleAudioService.dispose();
+    };
+  }, []);
+
+  // Timer countdown while playing
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          finishSession();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameState, durationSeconds]);
+
+  const handleStartGame = () => {
+    bubbleAudioService.init();
+    setTimeLeft(durationSeconds);
+    setBubblesPopped(0);
+    setHasSubmittedFeedback(false);
+    bubblesRef.current = [];
+    particlesRef.current = [];
+    ripplesRef.current = [];
+    floatingTextsRef.current = [];
+    lastSpawnRef.current = performance.now();
+    beatCountRef.current = 0;
+
+    if (gameMode === 'rhythm_pop') {
+      bubbleAudioService.startRhythm(rhythmPreset, (step, intervalMs) => {
+        if (gameStateRef.current !== 'playing') return;
+        beatCountRef.current = step;
+        spawnRhythmBubble(step, intervalMs);
+      });
+    } else {
+      bubbleAudioService.stopRhythm();
+    }
+
+    setGameState('playing');
+  };
+
+  const handlePauseToggle = () => {
+    if (gameState === 'playing') {
+      setGameState('paused');
+      bubbleAudioService.stopRhythm();
+    } else if (gameState === 'paused') {
+      setGameState('playing');
+      if (gameMode === 'rhythm_pop') {
+        bubbleAudioService.startRhythm(rhythmPreset, (step, intervalMs) => {
+          if (gameStateRef.current !== 'playing') return;
+          beatCountRef.current = step;
+          spawnRhythmBubble(step, intervalMs);
+        });
+      }
+    }
+  };
+
+  const finishSession = () => {
+    bubbleAudioService.stopRhythm();
+    if (window.confetti) {
+      window.confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
+    }
+    setGameState('completed');
+  };
+
+  const spawnRhythmBubble = (step, intervalMs) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || 700;
+    const h = rect.height || 480;
+
+    const baseRadius = rhythmPreset === 'calm' ? 44 : rhythmPreset === 'flow' ? 36 : 30;
+    const radius = baseRadius + (Math.random() * 12 - 6);
+    const x = radius + 30 + Math.random() * (w - radius * 2 - 60);
+    const y = radius + 40 + Math.random() * (h - radius * 2 - 70);
+
+    const colors = [
+      { primary: '#06b6d4', glow: 'rgba(6, 182, 212, 0.4)', light: '#cffafe' }, // Cyan
+      { primary: '#0d9488', glow: 'rgba(13, 148, 136, 0.4)', light: '#ccfbf1' }, // Teal
+      { primary: '#6366f1', glow: 'rgba(99, 102, 241, 0.4)', light: '#e0e7ff' }, // Indigo
+      { primary: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.4)', light: '#ede9fe' }, // Violet
+      { primary: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)', light: '#fef3c7' }  // Amber
+    ];
+    const color = colors[step % colors.length];
+
+    bubblesRef.current.push({
+      id: 'b-' + Math.random(),
+      x,
+      y,
+      radius,
+      color,
+      vy: -(0.2 + Math.random() * 0.3),
+      vx: (Math.random() - 0.5) * 0.4,
+      wobblePhase: Math.random() * Math.PI * 2,
+      wobbleSpeed: 0.04 + Math.random() * 0.03,
+      scale: 0.1,
+      targetScale: 1.0,
+      createdAt: performance.now(),
+      beatInterval: intervalMs,
+      pitchIndex: step % 10,
+      pulseRingRadius: radius * 1.8,
+      pulseAlpha: 0.8
+    });
+
+    if (bubblesRef.current.length > 10) {
+      bubblesRef.current.shift();
+    }
+  };
+
+  const spawnFreeBubble = (w, h) => {
+    const radius = 32 + Math.random() * 26;
+    const x = radius + 20 + Math.random() * (w - radius * 2 - 40);
+    const y = h + radius;
+
+    const colors = [
+      { primary: '#38bdf8', glow: 'rgba(56, 189, 248, 0.35)', light: '#e0f2fe' },
+      { primary: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.35)', light: '#ccfbf1' },
+      { primary: '#818cf8', glow: 'rgba(129, 140, 248, 0.35)', light: '#e0e7ff' },
+      { primary: '#c084fc', glow: 'rgba(192, 132, 252, 0.35)', light: '#f3e8ff' },
+      { primary: '#fb923c', glow: 'rgba(251, 146, 60, 0.35)', light: '#ffedd5' }
+    ];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    bubblesRef.current.push({
+      id: 'b-' + Math.random(),
+      x,
+      y,
+      radius,
+      color,
+      vy: -(0.5 + Math.random() * 0.7),
+      vx: (Math.random() - 0.5) * 0.5,
+      wobblePhase: Math.random() * Math.PI * 2,
+      wobbleSpeed: 0.03 + Math.random() * 0.02,
+      scale: 0.2,
+      targetScale: 1.0,
+      createdAt: performance.now(),
+      pitchIndex: Math.floor(Math.random() * 10),
+      pulseRingRadius: 0,
+      pulseAlpha: 0
+    });
+
+    if (bubblesRef.current.length > 12) {
+      bubblesRef.current.shift();
+    }
+  };
+
+  // Main Canvas Animation Loop
+  useEffect(() => {
+    if (gameState !== 'playing' && gameState !== 'paused') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let isRunning = true;
+
+    const render = (time) => {
+      if (!isRunning) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const displayWidth = Math.floor(rect.width);
+      const displayHeight = Math.floor(rect.height);
+
+      if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+        canvas.width = displayWidth * dpr;
+        canvas.height = displayHeight * dpr;
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+      // 1. Soft underwater caustic gradient backdrop
+      const bgGrad = ctx.createLinearGradient(0, 0, displayWidth, displayHeight);
+      bgGrad.addColorStop(0, '#f0fdf4');
+      bgGrad.addColorStop(0.5, '#f0f9ff');
+      bgGrad.addColorStop(1, '#e0f2fe');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+      // Subtle ambient caustic light circles
+      const tSec = time * 0.001;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(displayWidth * 0.3 + Math.sin(tSec * 0.5) * 40, displayHeight * 0.4 + Math.cos(tSec * 0.4) * 30, 140, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(displayWidth * 0.7 + Math.cos(tSec * 0.6) * 50, displayHeight * 0.6 + Math.sin(tSec * 0.5) * 35, 160, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Free Pop mode: auto-spawn floating bubbles smoothly
+      if (gameStateRef.current === 'playing' && gameMode === 'free_pop') {
+        if (time - lastSpawnRef.current > (rhythmPreset === 'calm' ? 1200 : rhythmPreset === 'flow' ? 900 : 700)) {
+          if (bubblesRef.current.length < 8) {
+            spawnFreeBubble(displayWidth, displayHeight);
+          }
+          lastSpawnRef.current = time;
+        }
+      }
+
+      // 2. Update & Draw Ripples
+      for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
+        const rip = ripplesRef.current[i];
+        if (gameStateRef.current === 'playing') {
+          rip.radius += 2.5;
+          rip.alpha -= 0.025;
+        }
+        if (rip.alpha <= 0) {
+          ripplesRef.current.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = rip.color;
+        ctx.globalAlpha = Math.max(0, rip.alpha);
+        ctx.lineWidth = rip.isHarmonic ? 3 : 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. Update & Draw Particles
+      for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+        const p = particlesRef.current[i];
+        if (gameStateRef.current === 'playing') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.08;
+          p.vx *= 0.96;
+          p.alpha -= 0.02;
+        }
+        if (p.alpha <= 0) {
+          particlesRef.current.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 4. Update & Draw Floating Micro-Texts
+      for (let i = floatingTextsRef.current.length - 1; i >= 0; i--) {
+        const ft = floatingTextsRef.current[i];
+        if (gameStateRef.current === 'playing') {
+          ft.y += ft.vy;
+          ft.alpha -= 0.02;
+        }
+        if (ft.alpha <= 0) {
+          floatingTextsRef.current.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.font = 'bold 12px "Plus Jakarta Sans", sans-serif';
+        ctx.fillStyle = ft.color;
+        ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.textAlign = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      }
+
+      // 5. Update & Draw Bubbles
+      for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
+        const b = bubblesRef.current[i];
+        if (gameStateRef.current === 'playing') {
+          b.wobblePhase += b.wobbleSpeed;
+          b.x += b.vx + Math.sin(b.wobblePhase) * 0.4;
+          b.y += b.vy;
+
+          if (b.scale < b.targetScale) {
+            b.scale = Math.min(b.targetScale, b.scale + 0.08);
+          }
+
+          if (gameMode === 'rhythm_pop' && b.pulseRingRadius > b.radius) {
+            b.pulseRingRadius -= 0.6;
+            b.pulseAlpha = Math.max(0.2, (b.pulseRingRadius - b.radius) / (b.radius * 0.8));
+          }
+
+          if (b.y < -b.radius * 2) {
+            bubblesRef.current.splice(i, 1);
+            continue;
+          }
+        }
+
+        const currentR = b.radius * b.scale;
+        if (currentR <= 0) continue;
+
+        ctx.save();
+
+        // Outer glow halo
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, currentR + 6, 0, Math.PI * 2);
+        ctx.fillStyle = b.color.glow;
+        ctx.fill();
+
+        // Bubble body gradient
+        const bubbleGrad = ctx.createRadialGradient(
+          b.x - currentR * 0.3,
+          b.y - currentR * 0.3,
+          currentR * 0.1,
+          b.x,
+          b.y,
+          currentR
+        );
+        bubbleGrad.addColorStop(0, '#ffffff');
+        bubbleGrad.addColorStop(0.3, b.color.light);
+        bubbleGrad.addColorStop(0.8, b.color.primary);
+        bubbleGrad.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
+
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, currentR, 0, Math.PI * 2);
+        ctx.fillStyle = bubbleGrad;
+        ctx.globalAlpha = 0.82;
+        ctx.fill();
+
+        // Iridescent outer ring
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // Crescent highlight spot
+        ctx.beginPath();
+        ctx.arc(b.x - currentR * 0.35, b.y - currentR * 0.35, currentR * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+
+        // Secondary reflection spot
+        ctx.beginPath();
+        ctx.arc(b.x + currentR * 0.35, b.y + currentR * 0.35, currentR * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.fill();
+
+        // Rhythm indicator ring in Rhythm Pop mode
+        if (gameMode === 'rhythm_pop' && b.pulseRingRadius > b.radius) {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.pulseRingRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = b.color.primary;
+          ctx.globalAlpha = b.pulseAlpha * 0.7;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+      }
+
+      ctx.restore();
+
+      if (isRunning) {
+        animFrameIdRef.current = requestAnimationFrame(render);
+      }
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(render);
+
+    return () => {
+      isRunning = false;
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    };
+  }, [gameState, gameMode, rhythmPreset]);
+
+  // Pointer Down Hit Testing
+  const handlePointerDown = (e) => {
+    if (gameState !== 'playing') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    let hitIndex = -1;
+    for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
+      const b = bubblesRef.current[i];
+      const dist = Math.hypot(clickX - b.x, clickY - b.y);
+      if (dist <= b.radius * 1.15) {
+        hitIndex = i;
+        break;
+      }
+    }
+
+    if (hitIndex >= 0) {
+      const poppedBubble = bubblesRef.current[hitIndex];
+      bubblesRef.current.splice(hitIndex, 1);
+
+      const isRhythmHit = gameMode === 'rhythm_pop';
+      bubbleAudioService.playPop(poppedBubble.pitchIndex, isRhythmHit);
+
+      const particleCount = isRhythmHit ? 16 : 12;
+      for (let p = 0; p < particleCount; p++) {
+        const angle = (p / particleCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+        const speed = 2.0 + Math.random() * 3.5;
+        particlesRef.current.push({
+          x: poppedBubble.x,
+          y: poppedBubble.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: 2.0 + Math.random() * 2.5,
+          color: poppedBubble.color.primary,
+          alpha: 0.9
+        });
+      }
+
+      ripplesRef.current.push({
+        x: poppedBubble.x,
+        y: poppedBubble.y,
+        radius: poppedBubble.radius * 0.5,
+        color: poppedBubble.color.primary,
+        alpha: 0.8,
+        isHarmonic: isRhythmHit
+      });
+
+      const praiseWords = ['✨ Flow', '🍃 Calm', '💫 Peace', '🫧 Rest', '🌿 Clear'];
+      const text = praiseWords[Math.floor(Math.random() * praiseWords.length)];
+      floatingTextsRef.current.push({
+        x: poppedBubble.x,
+        y: poppedBubble.y - 10,
+        vy: -1.2,
+        text,
+        color: poppedBubble.color.primary,
+        alpha: 1.0
+      });
+
+      setBubblesPopped(prev => prev + 1);
+    }
+  };
+
+  const handleFinishAndSave = async () => {
+    const elapsedSeconds = durationSeconds - timeLeft;
+    const sessionData = {
+      gameName: 'Bubble Rhythm',
+      gameMode,
+      rhythmPreset: gameMode === 'rhythm_pop' ? rhythmPreset : null,
+      durationSeconds: Math.max(10, elapsedSeconds),
+      bubblesPopped,
+      completed: true,
+      feeling,
+      enjoyment
+    };
+
+    setHasSubmittedFeedback(true);
+    if (onSaveSession) {
+      await onSaveSession(sessionData);
+    }
+    onBack();
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 animate-fade-in text-slate-900">
+      {/* 1. SETUP / MODE SELECTOR VIEW */}
+      {gameState === 'setup' && (
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200 bg-white shadow-lg space-y-6 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <i data-lucide="arrow-left" className="w-4 h-4"></i>
+              <span>Back to Mini Games</span>
+            </button>
+
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200">
+              🫧 2D Mindful Reset
+            </span>
+          </div>
+
+          <div className="text-center space-y-1.5">
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-3xl mx-auto shadow-sm">
+              🫧
+            </div>
+            <h2 className="text-2xl font-extrabold text-slate-900">Bubble Rhythm</h2>
+            <p className="text-xs text-slate-600 max-w-md mx-auto">
+              A gentle, non-competitive mental break. Pop bubbles with satisfying procedural audio and calming harmonic pacing.
+            </p>
+          </div>
+
+          {/* Mode Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">1. Choose Game Mode</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                onClick={() => setGameMode('free_pop')}
+                className={`game-mode-select-card ${gameMode === 'free_pop' ? 'selected' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🫧</span>
+                  <div>
+                    <div className="font-extrabold text-sm text-slate-900">Free Pop</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Pure simple relaxation. Tap floating bubbles at your own leisurely pace with soothing pop chimes.
+                    </p>
+                  </div>
+                </div>
+                {gameMode === 'free_pop' && (
+                  <div className="mt-2 text-right">
+                    <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Selected ✓</span>
+                  </div>
+                )}
+              </div>
+
+              <div
+                onClick={() => setGameMode('rhythm_pop')}
+                className={`game-mode-select-card ${gameMode === 'rhythm_pop' ? 'selected' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🎵</span>
+                  <div>
+                    <div className="font-extrabold text-sm text-slate-900">Rhythm Pop</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Procedural ambient rhythm. Bubbles appear synchronized with harmonic beats. No fail state!
+                    </p>
+                  </div>
+                </div>
+                {gameMode === 'rhythm_pop' && (
+                  <div className="mt-2 text-right">
+                    <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Selected ✓</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Rhythm Presets (if Rhythm Pop) */}
+          {gameMode === 'rhythm_pop' && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">2. Rhythm BPM Pacing</label>
+                <span className="text-[11px] text-slate-500">Low-arousal comfortable beats</span>
+              </div>
+
+              <div className="flex gap-2">
+                {[
+                  { id: 'calm', label: '🌿 Calm', bpm: '64 BPM', desc: 'Slow, deep breath pacing' },
+                  { id: 'flow', label: '🌊 Flow', bpm: '84 BPM', desc: 'Balanced walking tempo' },
+                  { id: 'energy', label: '⚡ Energy', bpm: '100 BPM', desc: 'Uplifting gentle recharge' }
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setRhythmPreset(p.id)}
+                    className={`rhythm-preset-chip ${rhythmPreset === p.id ? 'active' : ''}`}
+                  >
+                    <div className="text-xs font-extrabold">{p.label}</div>
+                    <div className="text-[10px] opacity-80 mt-0.5">{p.bpm}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Duration Selector */}
+          <div className="space-y-2 pt-1">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+              {gameMode === 'rhythm_pop' ? '3. Session Length' : '2. Session Length'}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { sec: 120, label: '2 Minutes', desc: 'Quick Reset' },
+                { sec: 180, label: '3 Minutes', desc: 'Balanced Break' },
+                { sec: 300, label: '5 Minutes', desc: 'Deep Recharge' }
+              ].map(d => (
+                <button
+                  key={d.sec}
+                  type="button"
+                  onClick={() => setDurationSeconds(d.sec)}
+                  className={`py-2 px-1 rounded-xl border text-center transition-all ${
+                    durationSeconds === d.sec
+                      ? 'bg-purple-600 border-purple-600 text-white font-extrabold shadow-sm'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold">{d.label}</div>
+                  <div className="text-[10px] opacity-80">{d.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sound & Music Controls Preview */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-600">
+            <span className="font-semibold">Audio Feedback:</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSoundMuted(!soundMuted)}
+                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
+                  !soundMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
+                }`}
+              >
+                <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
+                <span>Sound FX: {!soundMuted ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMusicMuted(!musicMuted)}
+                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
+                  !musicMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
+                }`}
+              >
+                <i data-lucide={musicMuted ? 'music-2' : 'music'} className="w-3.5 h-3.5"></i>
+                <span>Rhythm: {!musicMuted ? 'ON' : 'OFF'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Start Button */}
+          <button
+            onClick={handleStartGame}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+          >
+            <i data-lucide="play" className="w-4 h-4"></i>
+            <span>Start Bubble Rhythm ✨</span>
+          </button>
+        </div>
+      )}
+
+      {/* 2. LIVE GAME CANVAS VIEW */}
+      {(gameState === 'playing' || gameState === 'paused') && (
+        <div className="space-y-3 animate-fade-in max-w-3xl mx-auto">
+          {/* Canvas Viewport */}
+          <div className="game-canvas-wrapper">
+            {/* Top Floating HUD */}
+            <div className="game-hud-bar">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onBack}
+                  className="game-hud-btn"
+                  title="Exit to Mini Games"
+                >
+                  <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                </button>
+
+                <div className="game-hud-chip">
+                  <i data-lucide="clock" className="w-3.5 h-3.5 text-purple-600"></i>
+                  <span>{formatTime(timeLeft)}</span>
+                </div>
+
+                <div className="game-hud-chip text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 hidden sm:inline-flex">
+                  <span>🫧 {bubblesPopped} popped</span>
+                </div>
+              </div>
+
+              {/* Center Game Mode Badge */}
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700">
+                <span>{gameMode === 'free_pop' ? '🫧 Free Pop' : `🎵 Rhythm Pop (${rhythmPreset.toUpperCase()})`}</span>
+              </div>
+
+              {/* Right Controls: Sound, Music, Pause */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSoundMuted(!soundMuted)}
+                  className={`game-hud-btn ${!soundMuted ? 'active' : ''}`}
+                  title={soundMuted ? 'Unmute Sound' : 'Mute Sound'}
+                >
+                  <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  onClick={() => setMusicMuted(!musicMuted)}
+                  className={`game-hud-btn ${!musicMuted ? 'active' : ''}`}
+                  title={musicMuted ? 'Unmute Music' : 'Mute Music'}
+                >
+                  <i data-lucide={musicMuted ? 'music-2' : 'music'} className="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  onClick={handlePauseToggle}
+                  className="game-hud-btn"
+                  title={gameState === 'playing' ? 'Pause Game' : 'Resume Game'}
+                >
+                  <i data-lucide={gameState === 'playing' ? 'pause' : 'play'} className="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  onClick={finishSession}
+                  className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors ml-1"
+                  title="Finish and record reset"
+                >
+                  Finish
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive 2D Canvas */}
+            <canvas
+              ref={canvasRef}
+              className="game-canvas"
+              onPointerDown={handlePointerDown}
+            />
+
+            {/* Pause Overlay Dialog */}
+            {gameState === 'paused' && (
+              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-30 animate-fade-in">
+                <div className="glass-panel p-6 rounded-3xl bg-white border border-slate-200 shadow-2xl text-center space-y-4 max-w-xs w-full">
+                  <div className="text-3xl">⏸️</div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Game Paused</h3>
+                    <p className="text-xs text-slate-500 mt-1">Take a gentle breath before resuming.</p>
+                  </div>
+                  <div className="space-y-2 pt-2 text-xs">
+                    <button
+                      onClick={handlePauseToggle}
+                      className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-all shadow-sm"
+                    >
+                      Resume Game
+                    </button>
+                    <button
+                      onClick={finishSession}
+                      className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold"
+                    >
+                      Finish Session
+                    </button>
+                    <button
+                      onClick={onBack}
+                      className="w-full py-2 rounded-xl text-slate-500 hover:text-slate-800 font-semibold"
+                    >
+                      Exit to Mini Games
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 px-2">
+            <span>💡 Tip: Tap or click bubbles as they float. There are no penalties or timers to worry about.</span>
+            <span className="font-bold text-purple-700">{bubblesPopped} Bubbles Popped</span>
+          </div>
+        </div>
+      )}
+
+      {/* 3. CALM COMPLETION SCREEN */}
+      {gameState === 'completed' && (
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200 bg-white shadow-xl space-y-6 max-w-lg mx-auto text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-3xl mx-auto shadow-sm">
+            ✨
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-black text-slate-900">✨ Nice reset.</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">Take a breath before returning to your day.</p>
+          </div>
+
+          {/* Session Stats Recap */}
+          <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-left">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Duration</span>
+              <div className="text-base font-extrabold text-slate-900 mt-0.5">
+                {Math.round((durationSeconds - timeLeft) / 60)} min
+              </div>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Popped</span>
+              <div className="text-base font-extrabold text-emerald-600 mt-0.5">
+                {bubblesPopped}
+              </div>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Mode</span>
+              <div className="text-xs font-bold text-indigo-700 mt-0.5 truncate">
+                {gameMode === 'free_pop' ? 'Free Pop' : 'Rhythm Pop'}
+              </div>
+            </div>
+          </div>
+
+          {/* Question 1: How do you feel now? */}
+          <div className="space-y-2 text-left">
+            <label className="text-xs font-bold text-slate-800 block">How do you feel now?</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'better', label: 'Better', emoji: '😊' },
+                { id: 'same', label: 'Same', emoji: '😐' },
+                { id: 'stressed', label: 'Still stressed', emoji: '😔' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFeeling(item.id)}
+                  className={`feeling-rating-btn ${feeling === item.id ? 'selected' : ''}`}
+                >
+                  <span className="text-xl">{item.emoji}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 2: Did you enjoy the game? */}
+          <div className="space-y-2 text-left">
+            <label className="text-xs font-bold text-slate-800 block">Did you enjoy the game?</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'yes', label: 'Yes', icon: '❤️' },
+                { id: 'little', label: 'A little', icon: '😐' },
+                { id: 'no', label: 'Not really', icon: '👎' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setEnjoyment(item.id)}
+                  className={`enjoyment-rating-btn ${enjoyment === item.id ? 'selected' : ''}`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+            <button
+              onClick={handleFinishAndSave}
+              className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+            >
+              <i data-lucide="check-circle-2" className="w-4 h-4"></i>
+              <span>Save & Complete Reset</span>
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setGameState('setup')}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-colors"
+              >
+                Play Another Round
+              </button>
+              <button
+                onClick={onBack}
+                className="flex-1 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold border border-slate-200 transition-colors"
+              >
+                Return to Breathly
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================================================
+// 8E. MINI GAMES HUB VIEW
+// ==========================================================================
+
+function MiniGamesHubView({
+  user,
+  gameSessions = [],
+  onLaunchGame,
+  onBack,
+  onSignIn
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [user, gameSessions]);
+
+  const totalSessions = (gameSessions || []).length;
+  const totalDurationSeconds = (gameSessions || []).reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0);
+  const totalMinutes = Math.round(totalDurationSeconds / 60);
+  const totalBubbles = (gameSessions || []).reduce((acc, s) => acc + (Number(s.bubbles_popped || s.bubblesPopped) || 0), 0);
+  const betterCount = (gameSessions || []).filter(s => (s.feeling === 'better')).length;
+  const betterPercent = totalSessions > 0 ? Math.round((betterCount / totalSessions) * 100) : 0;
+
+  return (
+    <div className="space-y-6 pb-12 animate-fade-in text-slate-900 max-w-5xl mx-auto">
+      {/* Top Header */}
+      <div className="glass-panel p-6 sm:p-7 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-xl shadow-2xs">
+                🎮
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900">Mindful Mini-Games</h1>
+                <p className="text-xs text-slate-500">Low-arousal, non-competitive interactive resets to recharge your focus</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onBack}
+            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center gap-1.5"
+          >
+            <i data-lucide="arrow-left" className="w-4 h-4"></i>
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mini Games Library Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Featured Mini Game: Bubble Rhythm */}
+        <div className="minigame-card featured space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-md shadow-purple-500/20">
+                🫧
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">
+                ✨ Featured Reset
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-slate-900">Bubble Rhythm</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Pop iridescent bubbles synchronized with original relaxing procedural ambient rhythms. Combines visual satisfaction with soothing harmonic Web Audio tones.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs">
+                🫧 Free Pop Mode
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-xs font-bold text-purple-700 shadow-2xs">
+                🎵 Rhythm Pop (Calm/Flow/Energy)
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 shadow-2xs">
+                ⏱️ 2 – 5 min
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-indigo-100 flex items-center justify-between gap-3">
+            <div className="text-[11px] text-slate-500 font-semibold">
+              Zero fail state • Non-competitive
+            </div>
+
+            <button
+              onClick={() => onLaunchGame('bubble-rhythm')}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-md shadow-purple-500/25 transition-all flex items-center gap-2 hover:scale-105"
+            >
+              <i data-lucide="play" className="w-4 h-4"></i>
+              <span>Play Bubble Rhythm</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Teaser: Zen Pebble Garden */}
+        <div className="minigame-card space-y-4 flex flex-col justify-between opacity-80 hover:opacity-100">
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-2xl text-amber-900 shadow-2xs">
+                🪨
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wide">
+                Coming Soon
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-slate-900">Zen Pebble Garden</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Kinetic stone stacking, soothing sand raking, and tactile sound design for grounding your nervous system during high-stress study days.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                🪨 Balance Mode
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+                🏖️ Sand Rake
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-slate-400 font-semibold">In Active Development</span>
+            <button
+              disabled
+              className="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed"
+            >
+              Coming Soon
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Authenticated User Well-Being History & Impact */}
+      <div className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <i data-lucide="heart-pulse" className="w-5 h-5 text-purple-600"></i>
+              <span>Your Mini-Game Well-Being Impact</span>
+            </h3>
+            <p className="text-xs text-slate-500">Tracks how short interactive breaks influence your energy and stress baseline</p>
+          </div>
+
+          {!user && (
+            <button
+              onClick={onSignIn}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <span>Sign In to Sync History</span>
+            </button>
+          )}
+        </div>
+
+        {totalSessions > 0 ? (
+          <div className="space-y-4 pt-1">
+            {/* 4-Stat Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-100">
+                <span className="text-[10px] uppercase font-bold text-purple-600">Total Resets</span>
+                <div className="text-xl font-black text-purple-950 mt-1">{totalSessions}</div>
+                <span className="text-[10px] text-purple-600/80">Completed sessions</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100">
+                <span className="text-[10px] uppercase font-bold text-indigo-600">Recharge Time</span>
+                <div className="text-xl font-black text-indigo-950 mt-1">{totalMinutes}m</div>
+                <span className="text-[10px] text-indigo-600/80">Total mental pause</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-100">
+                <span className="text-[10px] uppercase font-bold text-teal-600">Bubbles Popped</span>
+                <div className="text-xl font-black text-teal-950 mt-1">{totalBubbles}</div>
+                <span className="text-[10px] text-teal-600/80">Satisfying taps</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
+                <span className="text-[10px] uppercase font-bold text-emerald-600">Felt Better</span>
+                <div className="text-xl font-black text-emerald-950 mt-1">{betterPercent}%</div>
+                <span className="text-[10px] text-emerald-600/80">Positive reset rate</span>
+              </div>
+            </div>
+
+            {/* Well-Being Reflection Insight */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-white border border-slate-200 flex-shrink-0 text-lg">💡</div>
+              <div className="space-y-1">
+                <div className="font-extrabold text-slate-900">Digital Well-Being Observation</div>
+                <p className="text-slate-600 leading-relaxed">
+                  {totalSessions >= 3
+                    ? "Short rhythm activities appear to help you feel better after mentally demanding periods. Continuing to take structured 2-3 minute breaks protects your cognitive stamina."
+                    : "You have started building a habit of intentional short resets. After a few more sessions, your personalized recharge trends will appear here."}
+                </p>
+              </div>
+            </div>
+
+            {/* Recent Sessions Table */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Recent Reset Sessions</h4>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {gameSessions.slice(0, 8).map((s, idx) => {
+                  const playedDate = s.played_at || s.playedAt || s.createdAt;
+                  const dateStr = playedDate ? new Date(playedDate).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'Recently';
+                  const timeStr = playedDate ? new Date(playedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                  const durationSec = Number(s.duration_seconds || s.durationSeconds) || 0;
+                  const popped = Number(s.bubbles_popped || s.bubblesPopped) || 0;
+                  const mode = s.game_mode || s.gameMode || 'rhythm_pop';
+                  const feelingVal = s.feeling || 'better';
+
+                  return (
+                    <div
+                      key={s.id || idx}
+                      className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">{mode === 'free_pop' ? '🫧' : '🎵'}</span>
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {mode === 'free_pop' ? 'Free Pop' : 'Bubble Rhythm'}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {dateStr} • {timeStr}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-semibold text-slate-600">
+                          {Math.round(durationSec / 60)}m ({popped} popped)
+                        </span>
+
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          feelingVal === 'better'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : feelingVal === 'same'
+                            ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        }`}>
+                          {feelingVal === 'better' ? '😊 Better' : feelingVal === 'same' ? '😐 Same' : '😔 Stressed'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+            <div className="text-3xl">🫧</div>
+            <h4 className="font-bold text-sm text-slate-800">No game sessions yet.</h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Take a short 2-minute Bubble Rhythm break to recharge your cognitive energy without pressure or competitive scoring.
+            </p>
+            <button
+              onClick={() => onLaunchGame('bubble-rhythm')}
+              className="mt-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors shadow-sm"
+            >
+              Play Bubble Rhythm
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5865,6 +7467,7 @@ function FooterNav({ user, currentView, setCurrentView, onOpenSafety, onOpenPriv
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
         <p>© 2026 Reset — Personal Adaptive Habit & Digital Well-Being Coach.</p>
         <div className="flex items-center space-x-4">
+          <button onClick={() => setCurrentView('minigames')} className="hover:text-slate-900 font-medium">Mini Games</button>
           <button onClick={() => setCurrentView('distractions')} className="hover:text-slate-900 font-medium">Distractions & Focus</button>
           <button onClick={() => setCurrentView('coach')} className="hover:text-slate-900 font-medium">My Coach</button>
           <button onClick={onOpenPrivacy} className="hover:text-slate-900 font-medium">Privacy Center</button>

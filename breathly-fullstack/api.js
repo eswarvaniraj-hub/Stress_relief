@@ -108,6 +108,12 @@
     // Preferences
     getPreferences: () => request('/preferences'),
     updatePreferences: (theme, notificationEnabled, dailyDistractionGoalMinutes) =>
-      request('/preferences', { method: 'PUT', body: JSON.stringify({ theme, notificationEnabled, dailyDistractionGoalMinutes }) })
+      request('/preferences', { method: 'PUT', body: JSON.stringify({ theme, notificationEnabled, dailyDistractionGoalMinutes }) }),
+
+    // Mini-Games & Bubble Rhythm Sessions
+    saveGameSession: (sessionData) =>
+      request('/games/sessions', { method: 'POST', body: JSON.stringify(sessionData) }),
+    listGameSessions: () => request('/games/sessions'),
+    getGameSummary: () => request('/games/summary')
   };
 })();
