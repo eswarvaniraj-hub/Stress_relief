@@ -134,6 +134,10 @@
     saveGameSession: (sessionData) =>
       request('/games/sessions', { method: 'POST', body: JSON.stringify(sessionData) }),
     listGameSessions: () => request('/games/sessions'),
-    getGameSummary: () => request('/games/summary')
+    getGameSummary: () => request('/games/summary'),
+
+    // AI Coach Chat (Google Gemini via Render Backend)
+    chatWithGemini: (message, context) =>
+      request('/chat/gemini', { method: 'POST', body: JSON.stringify({ message, context }) })
   };
 })();

@@ -15,6 +15,7 @@
   const BASE_URL = isLocal
     ? 'http://localhost:5000/api'
     : (window.API_BASE_URL || 'https://stress-relief.onrender.com/api');
+
   async function request(path, options = {}) {
     const controller = new AbortController();
     const timeoutMs = options.timeout || 8000;
@@ -29,7 +30,7 @@
       });
       clearTimeout(timeoutId);
       let data = null;
-      try { data = await res.json(); } catch (e) {}
+      try { data = await res.json(); } catch (e) { }
       if (!res.ok) {
         const message = (data && data.error) || `Request failed (${res.status})`;
         throw new Error(message);
@@ -133,6 +134,10 @@
     saveGameSession: (sessionData) =>
       request('/games/sessions', { method: 'POST', body: JSON.stringify(sessionData) }),
     listGameSessions: () => request('/games/sessions'),
-    getGameSummary: () => request('/games/summary')
+    getGameSummary: () => request('/games/summary'),
+
+    // AI Coach Chat (Google Gemini via Render Backend)
+    chatWithGemini: (message, context) =>
+      request('/chat/gemini', { method: 'POST', body: JSON.stringify({ message, context }) })
   };
 })();

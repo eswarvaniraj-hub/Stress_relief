@@ -34,8 +34,8 @@ async function createSession(req, res) {
     } = req.body;
 
     // Validate mode
-    const validModes = ['free_pop', 'rhythm_pop'];
-    const sanitizedMode = validModes.includes(gameMode) ? gameMode : 'rhythm_pop';
+    const validModes = ['free_pop', 'rhythm_pop', 'zen_balance', 'sand_ripple', 'celestial_flow', 'free_stack'];
+    const sanitizedMode = validModes.includes(gameMode) ? gameMode : (gameMode ? String(gameMode).slice(0, 50) : 'rhythm_pop');
 
     // Validate feeling
     const validFeelings = ['better', 'same', 'stressed'];

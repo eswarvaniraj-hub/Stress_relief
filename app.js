@@ -628,6 +628,230 @@ class BubbleRhythmAudioEngine {
 const bubbleAudioService = new BubbleRhythmAudioEngine();
 
 // ==========================================================================
+// PROCEDURAL ZEN GARDEN & CAIRN BALANCER AUDIO SYNTHESIZER
+// High-fidelity tactile stone clacks, singing bowl chimes, bamboo fountains & sand waves
+// ==========================================================================
+class ZenGardenAudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.soundGain = null;
+    this.soundEnabled = true;
+    this.singingBowls = [
+      174.0, // F3 - Solfeggio pain/tension relief
+      285.0, // D4 - Cognitive unfreeze
+      396.0, // G4 - Root grounding
+      417.0, // G#4 - Undoing stress
+      528.0, // C5 - Miracle/clarity tone
+      639.0, // D#5 - Harmonious equilibrium
+      741.0, // F#5 - Mental focus
+      852.0  // G#5 - Pure peaceful consciousness
+    ];
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.65, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        this.soundGain = this.ctx.createGain();
+        this.soundGain.gain.setValueAtTime(this.soundEnabled ? 0.8 : 0, this.ctx.currentTime);
+        this.soundGain.connect(this.masterGain);
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  setSoundEnabled(enabled) {
+    this.soundEnabled = enabled;
+    if (this.soundGain && this.ctx) {
+      this.soundGain.gain.setTargetAtTime(enabled ? 0.8 : 0, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  // Tactile acoustic stone impact / settling sound
+  playStoneClack(stoneSize = 1, isBalanced = false) {
+    if (!this.soundEnabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    const baseFreq = 180 / Math.sqrt(stoneSize || 1);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(baseFreq * 2.2, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, now + 0.08);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1200, now);
+    filter.frequency.exponentialRampToValueAtTime(320, now + 0.12);
+
+    gain.gain.setValueAtTime(0.45, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.soundGain);
+
+    osc.start(now);
+    osc.stop(now + 0.15);
+
+    // Secondary deep resonance thud
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(baseFreq * 0.9, now);
+    subOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + 0.18);
+
+    subGain.gain.setValueAtTime(0.28, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.soundGain);
+
+    subOsc.start(now);
+    subOsc.stop(now + 0.22);
+  }
+
+  // Harmonic Tibetan Singing Bowl chime when stones achieve balance or milestone
+  playSingingBowl(levelIndex = 0) {
+    if (!this.soundEnabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const fundamental = this.singingBowls[levelIndex % this.singingBowls.length] || 396;
+    const partials = [
+      { freq: fundamental, gain: 0.35, decay: 2.8 },
+      { freq: fundamental * 2.01, gain: 0.18, decay: 2.2 },
+      { freq: fundamental * 3.02, gain: 0.10, decay: 1.6 },
+      { freq: fundamental * 4.24, gain: 0.05, decay: 1.1 }
+    ];
+
+    partials.forEach(p => {
+      const osc = this.ctx.createOscillator();
+      const oscDetune = this.ctx.createOscillator();
+      const gainNode = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(p.freq, now);
+
+      oscDetune.type = 'sine';
+      oscDetune.frequency.setValueAtTime(p.freq + 0.55, now);
+
+      gainNode.gain.setValueAtTime(0.001, now);
+      gainNode.gain.linearRampToValueAtTime(p.gain, now + 0.04);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + p.decay);
+
+      osc.connect(gainNode);
+      oscDetune.connect(gainNode);
+      gainNode.connect(this.soundGain);
+
+      osc.start(now);
+      oscDetune.start(now);
+      osc.stop(now + p.decay + 0.1);
+      oscDetune.stop(now + p.decay + 0.1);
+    });
+  }
+
+  // Traditional Japanese Shishi-odoshi (Bamboo water fountain drop & click)
+  playBambooWaterDrop() {
+    if (!this.soundEnabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // Droplet tone
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.soundGain);
+    osc.start(now);
+    osc.stop(now + 0.13);
+
+    // Hollow bamboo clack
+    setTimeout(() => {
+      if (!this.ctx || !this.soundEnabled) return;
+      const t = this.ctx.currentTime;
+      const bOsc = this.ctx.createOscillator();
+      const bGain = this.ctx.createGain();
+      const bFilter = this.ctx.createBiquadFilter();
+
+      bOsc.type = 'triangle';
+      bOsc.frequency.setValueAtTime(240, t);
+      bOsc.frequency.exponentialRampToValueAtTime(120, t + 0.15);
+
+      bFilter.type = 'bandpass';
+      bFilter.frequency.setValueAtTime(450, t);
+      bFilter.Q.setValueAtTime(3, t);
+
+      bGain.gain.setValueAtTime(0.25, t);
+      bGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+      bOsc.connect(bFilter);
+      bFilter.connect(bGain);
+      bGain.connect(this.soundGain);
+      bOsc.start(t);
+      bOsc.stop(t + 0.2);
+    }, 120);
+  }
+
+  // Kinetic sand raking sound
+  playSandRakeSound(intensity = 1) {
+    if (!this.soundEnabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.35;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(750 + Math.random() * 300, now);
+    filter.Q.setValueAtTime(1.8, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.08 * Math.min(2, intensity), now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.soundGain);
+
+    noise.start(now);
+    noise.stop(now + 0.085);
+  }
+
+  dispose() {}
+}
+
+const zenAudioService = new ZenGardenAudioEngine();
+
+// ==========================================================================
 // EXPANDED TAILORED WELL-BEING & RESET ACTIVITIES
 // ==========================================================================
 const ACTIVITIES = {
@@ -1436,6 +1660,22 @@ function App() {
   const insights = useMemo(() => generateAIInsights(appState), [appState]);
   const frictionForecast = useMemo(() => calculateFrictionForecast(appState), [appState]);
 
+  const isHighStressState = useMemo(() => {
+    const isDemandingSignal = earlySignals.statusLevel === 'elevated' || earlySignals.statusLevel === 'demanding' || (earlySignals.score && earlySignals.score < 65);
+    const isFrictionHigh = frictionForecast && (frictionForecast.level === 'critical' || frictionForecast.level === 'elevated' || frictionForecast.score >= 45);
+    const isCheckInStressed = checkInStatus?.todayCheckIn && (
+      checkInStatus.todayCheckIn.overallFeeling === 'frazzled' ||
+      checkInStatus.todayCheckIn.overallFeeling === 'exhausted' ||
+      checkInStatus.todayCheckIn.overallFeeling === 'anxious' ||
+      checkInStatus.todayCheckIn.overallFeeling === 'demanding' ||
+      checkInStatus.todayCheckIn.workloadRating === 'heavy' ||
+      checkInStatus.todayCheckIn.workloadRating === 'overload' ||
+      (Number(checkInStatus.todayCheckIn.stressRating) >= 7)
+    );
+    const hasRecentFailures = appState.failureLogs && appState.failureLogs.some(f => Date.now() - Number(f.timestamp) < 72 * 3600 * 1000);
+    return Boolean(isDemandingSignal || isFrictionHigh || isCheckInStressed || hasRecentFailures);
+  }, [earlySignals, frictionForecast, checkInStatus, appState.failureLogs]);
+
   const handleToggleShieldMode = () => {
     setIsShieldModeActive(prev => {
       const next = !prev;
@@ -2119,6 +2359,7 @@ function App() {
             distractionGoalMinutes={appState.distractionGoalMinutes}
             frictionForecast={frictionForecast}
             isShieldModeActive={isShieldModeActive}
+            isHighStressState={isHighStressState}
             onToggleShieldMode={handleToggleShieldMode}
             onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
             onSaveDailyCheckIn={handleSaveDailyCheckIn}
@@ -2132,7 +2373,10 @@ function App() {
             onOpenGoals={() => setCurrentView('goals')}
             onOpenWeeklyReport={() => setCurrentView('weekly-report')}
             onOpenDistractions={() => setCurrentView('distractions')}
-            onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
+            onOpenMiniGames={(gameKey, mode) => {
+              setSelectedMiniGameMode(mode || (gameKey === 'zen-garden' ? 'zen_balance' : 'rhythm_pop'));
+              setCurrentView(gameKey === 'zen-garden' ? 'zen-garden' : 'bubble-rhythm');
+            }}
             onOpenMiniGamesHub={() => setCurrentView('minigames')}
             onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
             onAddDistraction={() => setShowAddDistractionModal(true)}
@@ -2145,9 +2389,15 @@ function App() {
           <MiniGamesHubView
             user={user}
             gameSessions={appState.gameSessions || []}
+            isHighStressState={isHighStressState}
             onLaunchGame={(gameKey, mode) => {
-              setSelectedMiniGameMode(mode || 'rhythm_pop');
-              setCurrentView('bubble-rhythm');
+              if (gameKey === 'zen-garden' || gameKey === 'zen_balance' || gameKey === 'sand_ripple') {
+                setSelectedMiniGameMode(mode || 'zen_balance');
+                setCurrentView('zen-garden');
+              } else {
+                setSelectedMiniGameMode(mode || 'rhythm_pop');
+                setCurrentView('bubble-rhythm');
+              }
             }}
             onBack={() => setCurrentView('dashboard')}
             onSignIn={() => setCurrentView('login')}
@@ -2159,6 +2409,16 @@ function App() {
             user={user}
             initialMode={selectedMiniGameMode || 'rhythm_pop'}
             initialPreset="calm"
+            initialDuration={180}
+            onSaveSession={handleSaveGameSession}
+            onBack={() => setCurrentView('minigames')}
+          />
+        )}
+
+        {currentView === 'zen-garden' && (
+          <ZenPebbleGame
+            user={user}
+            initialMode={selectedMiniGameMode || 'zen_balance'}
             initialDuration={180}
             onSaveSession={handleSaveGameSession}
             onBack={() => setCurrentView('minigames')}
@@ -3035,7 +3295,7 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset 
 // 4. DAILY WELL-BEING MONITORING COMPONENT (CONTEXTUAL 1-3 QUESTIONS)
 // ==========================================================================
 
-function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave }) {
+function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, onOpenMiniGames, isHighStressState = false }) {
   const [overallFeeling, setOverallFeeling] = useState('steady');
   const [workloadRating, setWorkloadRating] = useState('manageable');
   const [sleepQuality, setSleepQuality] = useState('normal');
@@ -3046,7 +3306,7 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave })
 
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [checkInStatus, isDismissed]);
+  }, [checkInStatus, isDismissed, isHighStressState]);
 
   const isStudent = (profile?.occupation || '').toLowerCase().includes('student') || (profile?.occupation || '').toLowerCase().includes('both');
   
@@ -3075,22 +3335,54 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave })
   if (isDismissed) return null;
 
   if (checkInStatus?.hasCheckedInToday) {
+    const todayCheckIn = checkInStatus?.todayCheckIn;
+    const isStressfulRecorded = isHighStressState || (todayCheckIn && (
+      todayCheckIn.overallFeeling === 'demanding' ||
+      todayCheckIn.overallFeeling === 'exhausted' ||
+      todayCheckIn.overallFeeling === 'anxious' ||
+      todayCheckIn.workloadRating === 'heavy' ||
+      todayCheckIn.workloadRating === 'overload' ||
+      Number(todayCheckIn.stressRating) >= 7
+    ));
+
     return (
-      <div className="daily-checkin-panel bg-emerald-50/50 border-emerald-200 flex items-center justify-between py-3.5 px-4 sm:px-5">
+      <div className={`daily-checkin-panel flex flex-col sm:flex-row items-start sm:items-center justify-between py-3.5 px-4 sm:px-5 gap-3 ${
+        isStressfulRecorded ? 'bg-gradient-to-r from-purple-50/90 via-indigo-50/60 to-white border-purple-200 shadow-2xs' : 'bg-emerald-50/50 border-emerald-200'
+      }`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800">
-            <i data-lucide="check" className="w-4 h-4"></i>
+          <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 ${
+            isStressfulRecorded ? 'bg-purple-100 border-purple-300 text-purple-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'
+          }`}>
+            <i data-lucide={isStressfulRecorded ? 'sparkles' : 'check'} className="w-4 h-4"></i>
           </div>
           <div>
-            <h4 className="text-xs font-bold text-emerald-950">Today’s Well-Being Pulse Recorded</h4>
-            <p className="text-[11px] text-emerald-800 mt-0.5">
-              Habit difficulty and coaching signals are synced with your answers.
+            <h4 className="text-xs font-bold text-slate-900">
+              {isStressfulRecorded ? '⚡ High-Pressure Pulse Recorded' : 'Today’s Well-Being Pulse Recorded'}
+            </h4>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              {isStressfulRecorded 
+                ? 'Your answers indicate cognitive strain. A 2-minute bubble break can help reset working memory.' 
+                : 'Habit difficulty and coaching signals are synced with your answers.'}
             </p>
           </div>
         </div>
-        <span className="text-[10px] font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200">
-          Cooldown Active
-        </span>
+
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          {isStressfulRecorded && onOpenMiniGames && (
+            <button
+              onClick={() => onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-extrabold shadow-sm transition-all flex items-center gap-1.5 hover:scale-105"
+            >
+              <span>🫧 Play Bubble Rhythm (2m)</span>
+              <i data-lucide="arrow-right" className="w-3 h-3"></i>
+            </button>
+          )}
+          <span className={`text-[10px] font-bold bg-white px-2.5 py-1 rounded-full border ${
+            isStressfulRecorded ? 'text-purple-700 border-purple-200' : 'text-emerald-700 border-emerald-200'
+          }`}>
+            Synced
+          </span>
+        </div>
       </div>
     );
   }
@@ -3498,6 +3790,7 @@ function DashboardView({
   gameSessions = [],
   frictionForecast,
   isShieldModeActive,
+  isHighStressState = false,
   onToggleShieldMode,
   onOpenDeEscalator,
   onOpenMiniGames,
@@ -3520,7 +3813,7 @@ function DashboardView({
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [habits, wellbeing, upcomingPressures, earlySignals, theme, distractions, focusSessions, gameSessions, isShieldModeActive, frictionForecast]);
+  }, [habits, wellbeing, upcomingPressures, earlySignals, theme, distractions, focusSessions, gameSessions, isShieldModeActive, frictionForecast, isHighStressState]);
 
   const completedCount = habits.filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length;
   const totalHabits = habits.length;
@@ -3584,7 +3877,7 @@ function DashboardView({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
                 className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5"
               >
                 <span>🫧 2-Min Bubble Break</span>
@@ -3601,6 +3894,49 @@ function DashboardView({
           </div>
         )}
       </div>
+
+      {/* DYNAMIC STRESS SUGGESTION BANNER (Triggered when user telemetry indicates stress) */}
+      {isHighStressState && (
+        <div className="stress-bubble-suggestion-banner animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-md shadow-purple-500/25 flex-shrink-0 animate-bounce">
+                🫧
+              </div>
+              <div className="space-y-1 text-left">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-extrabold uppercase tracking-wide pulse-trigger-indicator">
+                    ⚡ Stress Pattern Detected
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    High Cognitive Load & Friction Forecasted
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
+                  Your recent signals (workload, sleep, or interruptions) indicate heightened tension. We recommend a 2-minute <strong>Bubble Rhythm</strong> or <strong>Zen Cairn Balance</strong> reset to release cognitive friction and calm working memory.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto flex-shrink-0">
+              <button
+                onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold shadow-md shadow-purple-500/25 transition-all flex items-center gap-2 hover:scale-105"
+              >
+                <span>🫧 Launch Bubble Rhythm</span>
+                <i data-lucide="play" className="w-3.5 h-3.5"></i>
+              </button>
+
+              <button
+                onClick={() => onOpenMiniGames && onOpenMiniGames('zen-garden', 'zen_balance')}
+                className="px-4 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>🪨 Zen Garden</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PREEMPTIVE BURNOUT SHIELD & FRICTION FORECAST SUITE */}
       {frictionForecast && (
@@ -3721,7 +4057,7 @@ function DashboardView({
       />
 
       {/* NEW FEATURE: Mindful Mini-Breaks & Games Recommendation Widget */}
-      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50/40 via-white to-indigo-50/30 shadow-sm space-y-3">
+      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50/40 via-white to-amber-50/30 shadow-sm space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-xl shadow-2xs">
@@ -3729,30 +4065,38 @@ function DashboardView({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-slate-900">Mindful Mini-Breaks & Games</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
-                  New
+                <h3 className="text-base font-extrabold text-slate-900">Mindful Mini-Breaks & Mini-Games</h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  isHighStressState ? 'bg-purple-600 text-white animate-pulse' : 'bg-purple-100 text-purple-800 border border-purple-200'
+                }`}>
+                  {isHighStressState ? '🎯 Recommended for Your Stress State' : '2 Games Available'}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Short 2–3 minute non-competitive mental breaks to clear mental fatigue and reset focus
+                Low-arousal tactile and rhythm resets to clear cognitive fatigue and restore focus
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => onOpenMiniGames && onOpenMiniGames('free_pop')}
-              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all flex items-center gap-1"
+              onClick={() => onOpenMiniGames && onOpenMiniGames('zen-garden', 'zen_balance')}
+              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all flex items-center gap-1.5"
             >
-              <span>🫧 Free Pop</span>
+              <span>🪨 Zen Garden</span>
             </button>
             <button
-              onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm shadow-purple-500/20 transition-all flex items-center gap-1.5"
+              onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm shadow-purple-500/20 transition-all flex items-center gap-1.5 hover:scale-105"
             >
               <i data-lucide="play" className="w-3.5 h-3.5"></i>
               <span>Play Bubble Rhythm</span>
+            </button>
+            <button
+              onClick={onOpenMiniGamesHub}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
+            >
+              <span>Hub</span>
             </button>
           </div>
         </div>
@@ -3777,6 +4121,8 @@ function DashboardView({
         profile={profile}
         upcomingPressures={upcomingPressures}
         checkInStatus={checkInStatus}
+        isHighStressState={isHighStressState}
+        onOpenMiniGames={onOpenMiniGames}
         onSave={onSaveDailyCheckIn}
       />
 
@@ -4746,16 +5092,17 @@ function CoachView({
   const [messages, setMessages] = useState(() => [
     {
       sender: 'ai',
-      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm your Digital Well-Being & Habit Coach. I continuously analyze your 7 lifestyle baselines, distraction patterns, daily workload, sleep quality, and upcoming milestones so you stay consistent without burnout. How are you feeling right now?`
+      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm your Digital Well-Being & Habit Coach powered by Google Gemini. I analyze your daily habits, sleep quality, workload, and distractions to give you personalized guidance. How are you feeling right now?`
     }
   ]);
   const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const quickPrompts = [
     { label: "🫧 2-minute Bubble Rhythm break", prompt: "I need a quick 2-minute mental break. How does Bubble Rhythm help?" },
@@ -4766,50 +5113,79 @@ function CoachView({
     { label: "🔍 Analyze my focus vs distraction trends", prompt: "Analyze my recent study focus blocks and distraction patterns." }
   ];
 
-  const handleSend = (textToSend) => {
+  const handleSend = async (textToSend) => {
     const text = textToSend || inputText;
-    if (!text.trim()) return;
+    if (!text.trim() || isTyping) return;
 
     const userMsg = { sender: 'user', text };
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
+    setIsTyping(true);
 
-    setTimeout(() => {
-      let aiReply = '';
-      let actionType = null;
+    // Prepare contextual user telemetry payload for Gemini
+    const contextData = {
+      userName: user ? user.name?.split(' ')[0] : 'there',
+      statusTitle: earlySignals?.statusTitle || 'Balanced',
+      workload: appState?.checkInStatus?.todayCheckIn?.workloadRating || 'manageable',
+      sleepQuality: appState?.checkInStatus?.todayCheckIn?.sleepQuality || 'normal',
+      stressRating: appState?.checkInStatus?.todayCheckIn?.stressRating || 5,
+      topDistraction: (appState?.distractions || [])[0]?.category || 'None logged',
+      habitsCount: (appState?.habits || []).length,
+      completedHabits: (appState?.habits || []).filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length,
+      isHighStressState: earlySignals?.statusLevel === 'elevated' || earlySignals?.statusLevel === 'demanding'
+    };
 
-      const lower = text.toLowerCase();
-      if (lower.includes('bubble') || lower.includes('mini game') || lower.includes('game break') || lower.includes('rhythm')) {
-        aiReply = `Bubble Rhythm is designed specifically for mindful recovery. By synchronizing bubble pops with harmonic procedural pentatonic tones (64-84 BPM), it resets working memory without competitive pressure or screen stress.`;
-        actionType = 'play-bubble-rhythm';
-      } else if (lower.includes('distract') || lower.includes('phone') || lower.includes('social') || lower.includes('notification')) {
-        const topDists = appState.distractions || [];
-        const topCat = topDists.length > 0 ? topDists[0].category : 'Social Media';
-        aiReply = `Distractions like "${topCat}" typically peak during cognitive friction or energy dips. I recommend putting your phone in another room and starting a 25-minute dedicated Focus Sprint. If you feel tired, take a 60-second breathing reset first.`;
-        actionType = 'start-focus-sprint';
-      } else if (lower.includes('pomodoro') || lower.includes('focus') || lower.includes('study block') || lower.includes('sprint')) {
-        aiReply = `Let's launch a 25-minute Pomodoro focus block right now! During the session, you can log any interruptions with 1 click without losing your timer rhythm. Ready?`;
-        actionType = 'start-focus-sprint';
-      } else if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('fatigue')) {
-        aiReply = `I hear you. When energy is depleted, forcing a full 30-minute task creates friction and burnout. Let's switch today's remaining habits to Minimum Mode (2-minute micro-doses) or take a 2-minute Bubble Rhythm break.`;
-        actionType = 'min-mode-all';
-      } else if (lower.includes('overwhelm') || lower.includes('deadline') || lower.includes('exam')) {
-        aiReply = `During heavy exam or deliverable crunch, cognitive bandwidth is precious. Protect your sleep boundary first. I suggest using Box Breathing (4-4-4-4) for laser focus and scaling down non-essential habits.`;
-        actionType = 'quick-reset';
-      } else if (lower.includes('pattern') || lower.includes('trend') || lower.includes('analyze') || lower.includes('friction')) {
-        const failureCount = (appState.failureLogs || []).length;
-        const distCount = (appState.distractions || []).length;
-        aiReply = `Based on your profile and recent logs (${distCount} distractions, ${failureCount} habit friction logs), your primary distraction occurs in the evening. Structuring deep work earlier and using Minimum Mode on low-sleep days will protect your momentum.`;
-        actionType = 'open-radar';
-      } else {
-        aiReply = `You are currently in a ${earlySignals.statusTitle} phase. ${earlySignals.gentleNudge}`;
+    try {
+      if (window.api && typeof window.api.chatWithGemini === 'function') {
+        const res = await window.api.chatWithGemini(text, contextData);
+        if (res && res.reply) {
+          setMessages(prev => [
+            ...prev,
+            { sender: 'ai', text: res.reply, actionType: res.actionType }
+          ]);
+          setIsTyping(false);
+          return;
+        }
       }
+      throw new Error('Local fallback');
+    } catch (err) {
+      // Graceful local fallback if offline or backend is unreachable
+      setTimeout(() => {
+        let aiReply = `You are currently in a ${earlySignals?.statusTitle || 'steady'} phase. ${earlySignals?.gentleNudge || 'Keep taking gentle, steady micro-steps.'}`;
+        let actionType = null;
 
-      setMessages(prev => [
-        ...prev,
-        { sender: 'ai', text: aiReply, actionType }
-      ]);
-    }, 450);
+        const lower = text.toLowerCase();
+        if (lower.includes('bubble') || lower.includes('mini game') || lower.includes('game break') || lower.includes('rhythm')) {
+          aiReply = `Bubble Rhythm is designed specifically for mindful recovery. By synchronizing bubble pops with harmonic procedural pentatonic tones (64-84 BPM), it resets working memory without competitive pressure or screen stress.`;
+          actionType = 'play-bubble-rhythm';
+        } else if (lower.includes('distract') || lower.includes('phone') || lower.includes('social') || lower.includes('notification')) {
+          const topDists = appState?.distractions || [];
+          const topCat = topDists.length > 0 ? topDists[0].category : 'Social Media';
+          aiReply = `Distractions like "${topCat}" typically peak during cognitive friction or energy dips. I recommend putting your phone in another room and starting a 25-minute dedicated Focus Sprint. If you feel tired, take a 60-second breathing reset first.`;
+          actionType = 'start-focus-sprint';
+        } else if (lower.includes('pomodoro') || lower.includes('focus') || lower.includes('study block') || lower.includes('sprint')) {
+          aiReply = `Let's launch a 25-minute Pomodoro focus block right now! During the session, you can log any interruptions with 1 click without losing your timer rhythm. Ready?`;
+          actionType = 'start-focus-sprint';
+        } else if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('fatigue')) {
+          aiReply = `I hear you. When energy is depleted, forcing a full 30-minute task creates friction and burnout. Let's switch today's remaining habits to Minimum Mode (2-minute micro-doses) or take a 2-minute Bubble Rhythm break.`;
+          actionType = 'min-mode-all';
+        } else if (lower.includes('overwhelm') || lower.includes('deadline') || lower.includes('exam')) {
+          aiReply = `During heavy exam or deliverable crunch, cognitive bandwidth is precious. Protect your sleep boundary first. I suggest using Box Breathing (4-4-4-4) for laser focus and scaling down non-essential habits.`;
+          actionType = 'quick-reset';
+        } else if (lower.includes('pattern') || lower.includes('trend') || lower.includes('analyze') || lower.includes('friction')) {
+          const failureCount = (appState?.failureLogs || []).length;
+          const distCount = (appState?.distractions || []).length;
+          aiReply = `Based on your profile and recent logs (${distCount} distractions, ${failureCount} habit friction logs), your primary distraction occurs in the evening. Structuring deep work earlier and using Minimum Mode on low-sleep days will protect your momentum.`;
+          actionType = 'open-radar';
+        }
+
+        setMessages(prev => [
+          ...prev,
+          { sender: 'ai', text: aiReply, actionType }
+        ]);
+        setIsTyping(false);
+      }, 350);
+    }
   };
 
   return (
@@ -4823,7 +5199,7 @@ function CoachView({
 
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span className="text-xs font-bold text-slate-700">Coach Online & Adaptive</span>
+          <span className="text-xs font-bold text-slate-700">Coach Online & Powered by Gemini</span>
         </div>
       </div>
 
@@ -4839,7 +5215,7 @@ function CoachView({
                 {m.actionType === 'play-bubble-rhythm' && (
                   <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
                     <button
-                      onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                      onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
                       className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
                     >
                       <i data-lucide="play" className="w-3.5 h-3.5"></i>
@@ -4859,7 +5235,7 @@ function CoachView({
                     </button>
                     <button
                       onClick={onOpenDistractions}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition-all"
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition-all"
                     >
                       <span>View Distractions Radar</span>
                     </button>
@@ -4887,7 +5263,7 @@ function CoachView({
                       <span>⚡ Switch All to Minimum Mode</span>
                     </button>
                     <button
-                      onClick={() => onOpenMiniGames && onOpenMiniGames('rhythm_pop')}
+                      onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
                       className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200 flex items-center gap-1.5 transition-all"
                     >
                       <span>🫧 2-Min Bubble Break</span>
@@ -4906,9 +5282,9 @@ function CoachView({
                   <div className="mt-3 pt-3 border-t border-slate-200">
                     <button
                       onClick={() => onQuickReset(ACTIVITIES['breathing-box'])}
-                      className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                      className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
                     >
-                      <i data-lucide="wind" className="w-3.5 h-3.5"></i>
+                      <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
                       <span>Start Box Breathing for Focus</span>
                     </button>
                   </div>
@@ -4916,6 +5292,19 @@ function CoachView({
               </div>
             </div>
           ))}
+
+          {/* Typing / Thinking Indicator */}
+          {isTyping && (
+            <div className="flex flex-col items-start animate-fade-in">
+              <div className="coach-bubble-ai max-w-xs flex items-center gap-2 py-3 px-4 shadow-sm">
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce"></div>
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.4s]"></div>
+                <span className="text-xs text-slate-500 font-medium ml-1.5">Coach is thinking...</span>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -4925,7 +5314,8 @@ function CoachView({
             <button
               key={i}
               onClick={() => handleSend(p.prompt)}
-              className="coach-chip"
+              disabled={isTyping}
+              className={`coach-chip ${isTyping ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
               <span>{p.label}</span>
             </button>
@@ -4937,15 +5327,17 @@ function CoachView({
           <input
             type="text"
             value={inputText}
+            disabled={isTyping}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Ask your coach anything about focus, distractions, habits, or fatigue..."
-            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
+            placeholder={isTyping ? "Coach is thinking..." : "Ask your coach anything about focus, distractions, habits, or fatigue..."}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-indigo-600 disabled:opacity-60"
           />
           <button
             type="submit"
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors flex items-center gap-1 shadow-sm"
+            disabled={isTyping || !inputText.trim()}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>Send</span>
+            <span>{isTyping ? "..." : "Send"}</span>
             <i data-lucide="send" className="w-3.5 h-3.5"></i>
           </button>
         </form>
@@ -6690,19 +7082,1055 @@ function BubbleRhythmGame({
 }
 
 // ==========================================================================
+// 8D-2. ZEN PEBBLE CAIRN BALANCER & KINETIC SAND GARDEN MINI-GAME
+// ==========================================================================
+
+function ZenPebbleGame({
+  user,
+  initialMode = 'zen_balance',
+  initialDuration = 180,
+  onSaveSession,
+  onBack
+}) {
+  const [gameState, setGameState] = useState('setup'); // 'setup' | 'playing' | 'paused' | 'completed'
+  const [gameMode, setGameMode] = useState(initialMode); // 'zen_balance' | 'sand_ripple'
+  const [durationSeconds, setDurationSeconds] = useState(initialDuration);
+  const [timeLeft, setTimeLeft] = useState(initialDuration);
+  const [stonesPlaced, setStonesPlaced] = useState(0);
+  const [activeMandalaStamp, setActiveMandalaStamp] = useState('lotus');
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [activeMilestone, setActiveMilestone] = useState(null);
+
+  // Post-game reflection
+  const [feeling, setFeeling] = useState('better');
+  const [enjoyment, setEnjoyment] = useState('yes');
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+
+  const canvasRef = useRef(null);
+  const animFrameIdRef = useRef(null);
+  const gameStateRef = useRef(gameState);
+  
+  // Physics & Zen Canvas Refs
+  const stonesRef = useRef([]);
+  const heldStoneRef = useRef(null);
+  const sandTracksRef = useRef([]);
+  const petalsRef = useRef([]);
+  const mandalasRef = useRef([]);
+  const particlesRef = useRef([]);
+  const isPointerDownRef = useRef(false);
+  const lastPointerPosRef = useRef({ x: 0, y: 0 });
+
+  const STONE_PALETTES = [
+    { name: 'River Slate', top: '#475569', bot: '#1e293b', border: '#64748b' },
+    { name: 'Jade Pebble', top: '#10b981', bot: '#064e3b', border: '#34d399' },
+    { name: 'Rose Quartz', top: '#f472b6', bot: '#831843', border: '#fbcfe8' },
+    { name: 'Amber Stone', top: '#f59e0b', bot: '#78350f', border: '#fde68a' },
+    { name: 'Obsidian Star', top: '#38bdf8', bot: '#0f172a', border: '#7dd3fc' }
+  ];
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [gameState, gameMode, soundMuted, feeling, enjoyment, activeMandalaStamp, activeMilestone]);
+
+  // Audio Sync
+  useEffect(() => {
+    zenAudioService.setSoundEnabled(!soundMuted);
+  }, [soundMuted]);
+
+  useEffect(() => {
+    return () => {
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      zenAudioService.dispose();
+    };
+  }, []);
+
+  // Timer countdown while playing
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          finishSession();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameState, durationSeconds]);
+
+  const spawnNewStone = (customX, customY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const palette = STONE_PALETTES[Math.floor(Math.random() * STONE_PALETTES.length)];
+    const w = 55 + Math.random() * 55;
+    const h = 24 + Math.random() * 22;
+    const newStone = {
+      id: 'stone-' + Date.now() + '-' + Math.random(),
+      x: customX !== undefined ? customX : canvas.width / 2 + (Math.random() - 0.5) * 40,
+      y: customY !== undefined ? customY : 90,
+      vx: 0,
+      vy: 0,
+      w,
+      h,
+      angle: (Math.random() - 0.5) * 0.2,
+      angularVel: 0,
+      mass: (w * h) / 1000,
+      palette,
+      isResting: false,
+      isHeld: false,
+      settleTime: 0
+    };
+    stonesRef.current.push(newStone);
+    zenAudioService.playStoneClack(newStone.mass);
+  };
+
+  const handleStartGame = () => {
+    zenAudioService.init();
+    setTimeLeft(durationSeconds);
+    setStonesPlaced(0);
+    setActiveMilestone(null);
+    setHasSubmittedFeedback(false);
+    stonesRef.current = [];
+    heldStoneRef.current = null;
+    sandTracksRef.current = [];
+    mandalasRef.current = [];
+    particlesRef.current = [];
+
+    // Initialize drifting sakura petals
+    petalsRef.current = [];
+    for (let i = 0; i < 18; i++) {
+      petalsRef.current.push({
+        x: Math.random() * 800,
+        y: Math.random() * 500,
+        vx: 0.3 + Math.random() * 0.7,
+        vy: 0.2 + Math.random() * 0.5,
+        size: 5 + Math.random() * 5,
+        angle: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.04,
+        alpha: 0.5 + Math.random() * 0.4
+      });
+    }
+
+    setGameState('playing');
+
+    // Spawn 2 starter stones in balance mode
+    setTimeout(() => {
+      if (gameMode === 'zen_balance') {
+        spawnNewStone();
+      }
+    }, 100);
+  };
+
+  const handlePauseToggle = () => {
+    setGameState(prev => (prev === 'playing' ? 'paused' : 'playing'));
+  };
+
+  const finishSession = () => {
+    if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    setGameState('completed');
+    zenAudioService.playSingingBowl(4);
+  };
+
+  const handleClearCanvas = () => {
+    stonesRef.current = [];
+    sandTracksRef.current = [];
+    mandalasRef.current = [];
+    setStonesPlaced(0);
+    setActiveMilestone(null);
+    zenAudioService.playBambooWaterDrop();
+    if (gameMode === 'zen_balance') {
+      spawnNewStone();
+    }
+  };
+
+  // Main 60fps Interactive Physics & Render Loop
+  useEffect(() => {
+    if (gameState !== 'playing' && gameState !== 'paused') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let isRunning = true;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    const altarY = canvas.height - 80 * dpr;
+    const altarWidth = 260 * dpr;
+    const altarHeight = 35 * dpr;
+    const altarX = canvas.width / 2;
+
+    const render = () => {
+      if (!isRunning) return;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+
+      // 1. Serene Backdrop
+      if (gameMode === 'zen_balance') {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+        bgGrad.addColorStop(0, '#fdfbf7');
+        bgGrad.addColorStop(0.5, '#f5efe4');
+        bgGrad.addColorStop(1, '#e8dcce');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Gentle ambient sun aura
+        const sunGrad = ctx.createRadialGradient(w / 2, h * 0.2, 10, w / 2, h * 0.2, 180);
+        sunGrad.addColorStop(0, 'rgba(254, 240, 138, 0.35)');
+        sunGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+        ctx.fillStyle = sunGrad;
+        ctx.beginPath();
+        ctx.arc(w / 2, h * 0.2, 180, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Altar Base Stone Plinth
+        const altarBaseY = (altarY / dpr);
+        const altarW = (altarWidth / dpr);
+        const altarH = (altarHeight / dpr);
+
+        ctx.shadowColor = 'rgba(74, 46, 18, 0.18)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 6;
+
+        ctx.beginPath();
+        ctx.roundRect(w / 2 - altarW / 2, altarBaseY, altarW, altarH, 16);
+        const altarGrad = ctx.createLinearGradient(w / 2 - altarW / 2, altarBaseY, w / 2 + altarW / 2, altarBaseY + altarH);
+        altarGrad.addColorStop(0, '#475569');
+        altarGrad.addColorStop(0.5, '#334155');
+        altarGrad.addColorStop(1, '#1e293b');
+        ctx.fillStyle = altarGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowColor = 'transparent';
+
+        // Altar Engraving
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = 'bold 11px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('— ZEN ALTAR FOUNDATION —', w / 2, altarBaseY + 22);
+
+        // Golden Balance Center-of-Mass Line (if 2+ stones stacked)
+        const restingStones = stonesRef.current.filter(s => s.isResting);
+        if (restingStones.length >= 2) {
+          const topStone = restingStones[restingStones.length - 1];
+          ctx.beginPath();
+          ctx.setLineDash([4, 4]);
+          ctx.moveTo(w / 2, altarBaseY);
+          ctx.lineTo(w / 2, topStone.y - topStone.h);
+          ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // 2. Physics step for Stones
+        if (gameStateRef.current === 'playing') {
+          for (let i = 0; i < stonesRef.current.length; i++) {
+            const stone = stonesRef.current[i];
+            if (stone.isHeld) continue;
+
+            // Apply gravity
+            stone.vy += 0.35;
+            stone.x += stone.vx;
+            stone.y += stone.vy;
+            stone.angle += stone.angularVel;
+            stone.vx *= 0.95;
+            stone.angularVel *= 0.92;
+
+            // Collision with Altar Floor
+            if (stone.y + stone.h / 2 >= altarBaseY) {
+              const halfBase = altarW / 2;
+              if (stone.x >= w / 2 - halfBase && stone.x <= w / 2 + halfBase) {
+                stone.y = altarBaseY - stone.h / 2;
+                stone.vy = 0;
+                stone.vx = 0;
+                stone.angularVel = 0;
+                stone.angle *= 0.8;
+                if (!stone.isResting) {
+                  stone.isResting = true;
+                  zenAudioService.playStoneClack(stone.mass, true);
+                  zenAudioService.playSingingBowl(stonesRef.current.filter(s => s.isResting).length);
+                  setStonesPlaced(prev => {
+                    const next = prev + 1;
+                    if (next === 1) setActiveMilestone('🌟 Foundation Grounded');
+                    else if (next === 3) setActiveMilestone('🌿 Triad Equilibrium (3 Stones)');
+                    else if (next === 5) setActiveMilestone('🧘 Harmonic Cairn (5 Stones)');
+                    else if (next === 7) setActiveMilestone('✨ Zen Master Balance (7+ Stones)');
+                    return next;
+                  });
+                }
+              }
+            }
+
+            // Collision with other stones beneath
+            for (let j = 0; j < stonesRef.current.length; j++) {
+              if (i === j) continue;
+              const other = stonesRef.current[j];
+              if (!other.isResting) continue;
+
+              const dx = stone.x - other.x;
+              const dy = stone.y - other.y;
+              const minDistY = (stone.h + other.h) * 0.48;
+              const maxOverlapX = (other.w * 0.52);
+
+              if (Math.abs(dx) < maxOverlapX && dy < 0 && Math.abs(dy) < minDistY + 8) {
+                stone.y = other.y - (stone.h + other.h) * 0.48;
+                stone.vy = 0;
+                stone.vx = 0;
+                stone.angularVel = 0;
+                stone.angle = other.angle * 0.6;
+                if (!stone.isResting) {
+                  stone.isResting = true;
+                  zenAudioService.playStoneClack(stone.mass, true);
+                  const count = stonesRef.current.filter(s => s.isResting).length;
+                  zenAudioService.playSingingBowl(count);
+                  setStonesPlaced(prev => {
+                    const next = prev + 1;
+                    if (next === 3) setActiveMilestone('🌿 Triad Equilibrium (3 Stones)');
+                    else if (next === 5) setActiveMilestone('🧘 Harmonic Cairn (5 Stones)');
+                    else if (next === 7) setActiveMilestone('✨ Zen Master Balance (7+ Stones)');
+                    return next;
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Render Stones
+        for (let s of stonesRef.current) {
+          ctx.save();
+          ctx.translate(s.x, s.y);
+          ctx.rotate(s.angle);
+
+          // Stone Drop Shadow
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+          ctx.shadowBlur = s.isHeld ? 22 : 10;
+          ctx.shadowOffsetY = s.isHeld ? 12 : 5;
+
+          ctx.beginPath();
+          ctx.ellipse(0, 0, s.w / 2, s.h / 2, 0, 0, Math.PI * 2);
+
+          const grad = ctx.createLinearGradient(-s.w / 2, -s.h / 2, s.w / 2, s.h / 2);
+          grad.addColorStop(0, s.palette.top);
+          grad.addColorStop(1, s.palette.bot);
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.shadowColor = 'transparent';
+          ctx.strokeStyle = s.palette.border;
+          ctx.lineWidth = s.isHeld ? 2.5 : 1.5;
+          ctx.stroke();
+
+          // Organic stone highlight curve
+          ctx.beginPath();
+          ctx.ellipse(-s.w * 0.15, -s.h * 0.2, s.w * 0.25, s.h * 0.15, -0.2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.fill();
+
+          // Stable Chakra Sparkle
+          if (s.isResting) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.9)';
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+
+      } else {
+        // 2. Sand Ripple & Mandala Garden Mode
+        const sandGrad = ctx.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, w * 0.7);
+        sandGrad.addColorStop(0, '#fbf7ee');
+        sandGrad.addColorStop(0.6, '#f3ebd9');
+        sandGrad.addColorStop(1, '#e4d6be');
+        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw Sand Raked Tracks
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        for (let track of sandTracksRef.current) {
+          if (track.points.length < 2) continue;
+
+          // Sand furrow shadow
+          ctx.beginPath();
+          ctx.moveTo(track.points[0].x, track.points[0].y + 1.5);
+          for (let p of track.points) {
+            ctx.lineTo(p.x, p.y + 1.5);
+          }
+          ctx.strokeStyle = 'rgba(120, 85, 40, 0.18)';
+          ctx.stroke();
+
+          // Sand furrow ridge highlight
+          ctx.beginPath();
+          ctx.moveTo(track.points[0].x, track.points[0].y - 1.5);
+          for (let p of track.points) {
+            ctx.lineTo(p.x, p.y - 1.5);
+          }
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.stroke();
+
+          // Center groove
+          ctx.beginPath();
+          ctx.moveTo(track.points[0].x, track.points[0].y);
+          for (let p of track.points) {
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = 'rgba(168, 120, 60, 0.28)';
+          ctx.stroke();
+        }
+
+        // Render Stamped Mandalas
+        for (let m of mandalasRef.current) {
+          ctx.save();
+          ctx.translate(m.x, m.y);
+          ctx.rotate(m.rot);
+
+          ctx.strokeStyle = 'rgba(140, 95, 45, 0.4)';
+          ctx.lineWidth = 2;
+
+          if (m.type === 'lotus') {
+            for (let i = 0; i < 8; i++) {
+              ctx.rotate(Math.PI / 4);
+              ctx.beginPath();
+              ctx.ellipse(0, -22, 12, 22, 0, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.2)';
+            ctx.fill();
+            ctx.stroke();
+          } else if (m.type === 'enso') {
+            ctx.beginPath();
+            ctx.arc(0, 0, 32, 0.2, Math.PI * 1.85);
+            ctx.lineWidth = 4.5;
+            ctx.strokeStyle = 'rgba(120, 70, 30, 0.5)';
+            ctx.stroke();
+          } else if (m.type === 'spiral') {
+            ctx.beginPath();
+            for (let a = 0; a < Math.PI * 6; a += 0.1) {
+              const r = a * 5;
+              const sx = Math.cos(a) * r;
+              const sy = Math.sin(a) * r;
+              if (a === 0) ctx.moveTo(sx, sy);
+              else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+          } else {
+            // Yin-Yang
+            ctx.beginPath();
+            ctx.arc(0, 0, 30, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, -15, 15, -Math.PI / 2, Math.PI / 2, false);
+            ctx.arc(0, 15, 15, -Math.PI / 2, Math.PI / 2, true);
+            ctx.arc(0, 0, 30, Math.PI / 2, -Math.PI / 2, true);
+            ctx.fillStyle = 'rgba(120, 70, 30, 0.25)';
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // 3. Floating Drifting Cherry Blossom Petals
+      for (let p of petalsRef.current) {
+        if (gameStateRef.current === 'playing') {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.angle += p.rotSpeed;
+          if (p.x > w + 20) p.x = -20;
+          if (p.y > h + 20) p.y = -20;
+        }
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(244, 114, 182, ${p.alpha})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.restore();
+      animFrameIdRef.current = requestAnimationFrame(render);
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(render);
+
+    return () => {
+      isRunning = false;
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    };
+  }, [gameState, gameMode]);
+
+  // Pointer event handlers for Grab, Drag, Rotate, and Sand Rake
+  const handlePointerDown = (e) => {
+    if (gameState !== 'playing') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    isPointerDownRef.current = true;
+    lastPointerPosRef.current = { x: px, y: py };
+
+    if (gameMode === 'zen_balance') {
+      // Find top stone clicked
+      for (let i = stonesRef.current.length - 1; i >= 0; i--) {
+        const s = stonesRef.current[i];
+        const dist = Math.hypot(px - s.x, py - s.y);
+        if (dist <= s.w * 0.55) {
+          s.isHeld = true;
+          s.isResting = false;
+          s.vy = 0;
+          s.vx = 0;
+          heldStoneRef.current = s;
+          zenAudioService.playStoneClack(s.mass);
+          break;
+        }
+      }
+      if (!heldStoneRef.current && py < 200) {
+        spawnNewStone(px, py);
+      }
+    } else {
+      // Sand Ripple Mode: Start new track or place mandala
+      if (e.shiftKey || e.altKey) {
+        // Place mandala stamp
+        mandalasRef.current.push({
+          x: px,
+          y: py,
+          type: activeMandalaStamp,
+          rot: Math.random() * Math.PI * 2
+        });
+        zenAudioService.playBambooWaterDrop();
+      } else {
+        const newTrack = { points: [{ x: px, y: py }] };
+        sandTracksRef.current.push(newTrack);
+        zenAudioService.playSandRakeSound(1);
+      }
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isPointerDownRef.current || gameState !== 'playing') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    if (gameMode === 'zen_balance' && heldStoneRef.current) {
+      heldStoneRef.current.x = px;
+      heldStoneRef.current.y = py;
+    } else if (gameMode === 'sand_ripple') {
+      const currentTrack = sandTracksRef.current[sandTracksRef.current.length - 1];
+      if (currentTrack) {
+        currentTrack.points.push({ x: px, y: py });
+        if (Math.random() < 0.25) {
+          zenAudioService.playSandRakeSound(0.6);
+        }
+      }
+    }
+
+    lastPointerPosRef.current = { x: px, y: py };
+  };
+
+  const handlePointerUp = () => {
+    isPointerDownRef.current = false;
+    if (heldStoneRef.current) {
+      heldStoneRef.current.isHeld = false;
+      heldStoneRef.current = null;
+    }
+  };
+
+  const handleRotateHeld = (delta) => {
+    if (heldStoneRef.current) {
+      heldStoneRef.current.angle += delta;
+      zenAudioService.playStoneClack(heldStoneRef.current.mass);
+    } else if (stonesRef.current.length > 0) {
+      const topStone = stonesRef.current[stonesRef.current.length - 1];
+      topStone.angle += delta;
+      zenAudioService.playStoneClack(topStone.mass);
+    }
+  };
+
+  const handleFinishAndSave = async () => {
+    const elapsedSeconds = durationSeconds - timeLeft;
+    const sessionData = {
+      gameName: 'Zen Pebble Garden',
+      gameMode,
+      rhythmPreset: 'zen_harmony',
+      durationSeconds: Math.max(10, elapsedSeconds),
+      bubblesPopped: stonesPlaced,
+      completed: true,
+      feeling,
+      enjoyment
+    };
+
+    setHasSubmittedFeedback(true);
+    if (onSaveSession) {
+      await onSaveSession(sessionData);
+    }
+    onBack();
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 animate-fade-in text-slate-900">
+      {/* 1. SETUP / MODE SELECTOR VIEW */}
+      {gameState === 'setup' && (
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200 bg-white shadow-lg space-y-6 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <i data-lucide="arrow-left" className="w-4 h-4"></i>
+              <span>Back to Mini Games</span>
+            </button>
+
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+              🪨 Tactile Physics Reset
+            </span>
+          </div>
+
+          <div className="text-center space-y-1.5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-3xl mx-auto shadow-sm">
+              🪨
+            </div>
+            <h2 className="text-2xl font-black text-slate-900">Zen Pebble Garden</h2>
+            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+              Ground your nervous system with tactile stone balancing physics, soothing Tibetan singing bowls, and kinetic sand mandala raking.
+            </p>
+          </div>
+
+          {/* Mode Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">1. Choose Zen Practice</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                onClick={() => setGameMode('zen_balance')}
+                className={`game-mode-select-card ${gameMode === 'zen_balance' ? 'selected' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🪨</span>
+                  <div>
+                    <div className="font-extrabold text-sm text-slate-900">Cairn Balance</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Stack smooth river stones with 2D gravity physics, harmonic singing bowl chimes & balance milestones.
+                    </p>
+                  </div>
+                </div>
+                {gameMode === 'zen_balance' && (
+                  <div className="mt-2 text-right">
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Selected ✓</span>
+                  </div>
+                )}
+              </div>
+
+              <div
+                onClick={() => setGameMode('sand_ripple')}
+                className={`game-mode-select-card ${gameMode === 'sand_ripple' ? 'selected' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🏖️</span>
+                  <div>
+                    <div className="font-extrabold text-sm text-slate-900">Sand Ripple & Mandala</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Rake flowing sand ripples, stamp sacred mandalas & listen to Japanese bamboo water drops.
+                    </p>
+                  </div>
+                </div>
+                {gameMode === 'sand_ripple' && (
+                  <div className="mt-2 text-right">
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Selected ✓</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Duration Selector */}
+          <div className="space-y-2 pt-1">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">2. Session Length</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { sec: 120, label: '2 Minutes', desc: 'Tactile Grounding' },
+                { sec: 180, label: '3 Minutes', desc: 'Serene Balance' },
+                { sec: 300, label: '5 Minutes', desc: 'Deep Meditative Flow' }
+              ].map(d => (
+                <button
+                  key={d.sec}
+                  type="button"
+                  onClick={() => setDurationSeconds(d.sec)}
+                  className={`py-2.5 px-1 rounded-xl border text-center transition-all ${
+                    durationSeconds === d.sec
+                      ? 'bg-amber-800 border-amber-800 text-white font-extrabold shadow-sm'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold">{d.label}</div>
+                  <div className="text-[10px] opacity-80">{d.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sound FX Toggle */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-600">
+            <span className="font-semibold">Tactile Acoustic Audio:</span>
+            <button
+              type="button"
+              onClick={() => setSoundMuted(!soundMuted)}
+              className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
+                !soundMuted ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-100 border-slate-200 text-slate-400'
+              }`}
+            >
+              <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
+              <span>Singing Bowls & FX: {!soundMuted ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
+
+          {/* Start Button */}
+          <button
+            onClick={handleStartGame}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-700 via-amber-800 to-stone-800 hover:from-amber-800 hover:to-stone-900 text-white font-extrabold text-sm shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+          >
+            <i data-lucide="play" className="w-4 h-4"></i>
+            <span>Enter Zen Pebble Garden 🪨</span>
+          </button>
+        </div>
+      )}
+
+      {/* 2. LIVE GAME CANVAS VIEW */}
+      {(gameState === 'playing' || gameState === 'paused') && (
+        <div className="space-y-3 animate-fade-in max-w-4xl mx-auto">
+          {/* Canvas Viewport */}
+          <div className="zen-garden-canvas-wrapper">
+            {/* Top Floating HUD */}
+            <div className="game-hud-bar">
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={onBack}
+                  className="game-hud-btn"
+                  title="Exit to Mini Games"
+                >
+                  <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                </button>
+
+                <div className="game-hud-chip">
+                  <i data-lucide="clock" className="w-3.5 h-3.5 text-amber-700"></i>
+                  <span>{formatTime(timeLeft)}</span>
+                </div>
+
+                <div className="game-hud-chip text-amber-900 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 hidden sm:inline-flex">
+                  <span>🪨 {stonesPlaced} Balanced</span>
+                </div>
+              </div>
+
+              {/* Center Milestone Banner */}
+              {activeMilestone && (
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/90 border border-amber-300 text-[11px] font-extrabold text-amber-950 zen-milestone-badge shadow-2xs">
+                  <span>{activeMilestone}</span>
+                </div>
+              )}
+
+              {/* Right Controls */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSoundMuted(!soundMuted)}
+                  className={`game-hud-btn ${!soundMuted ? 'active' : ''}`}
+                  title={soundMuted ? 'Unmute Audio' : 'Mute Audio'}
+                >
+                  <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  onClick={handlePauseToggle}
+                  className="game-hud-btn"
+                  title={gameState === 'playing' ? 'Pause' : 'Resume'}
+                >
+                  <i data-lucide={gameState === 'playing' ? 'pause' : 'play'} className="w-3.5 h-3.5"></i>
+                </button>
+
+                <button
+                  onClick={finishSession}
+                  className="px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold border border-slate-200 transition-colors"
+                >
+                  Finish
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Canvas */}
+            <canvas
+              ref={canvasRef}
+              className="zen-canvas"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+            />
+
+            {/* Pause Overlay Dialog */}
+            {gameState === 'paused' && (
+              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-30 animate-fade-in">
+                <div className="glass-panel p-6 rounded-3xl bg-white border border-slate-200 shadow-2xl text-center space-y-4 max-w-xs w-full">
+                  <div className="text-3xl">⏸️</div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Practice Paused</h3>
+                    <p className="text-xs text-slate-500 mt-1">Take a calm breath and feel your feet grounded on the floor.</p>
+                  </div>
+                  <div className="space-y-2 pt-2 text-xs">
+                    <button
+                      onClick={handlePauseToggle}
+                      className="w-full py-2.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white font-bold transition-all shadow-sm"
+                    >
+                      Resume Practice
+                    </button>
+                    <button
+                      onClick={finishSession}
+                      className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold"
+                    >
+                      Finish Session
+                    </button>
+                    <button
+                      onClick={onBack}
+                      className="w-full py-2 rounded-xl text-slate-500 hover:text-slate-800 font-semibold"
+                    >
+                      Exit to Mini Games
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Interactive Tools Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-2 text-xs">
+            {gameMode === 'zen_balance' ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => spawnNewStone()}
+                  className="zen-tool-chip bg-amber-50 border-amber-200 text-amber-900 font-bold hover:bg-amber-100"
+                >
+                  <i data-lucide="plus-circle" className="w-3.5 h-3.5 text-amber-700"></i>
+                  <span>+ Drop New River Stone</span>
+                </button>
+
+                <button
+                  onClick={() => handleRotateHeld(-0.15)}
+                  className="zen-tool-chip"
+                  title="Rotate Left"
+                >
+                  <span>↺ Rotate Left</span>
+                </button>
+
+                <button
+                  onClick={() => handleRotateHeld(0.15)}
+                  className="zen-tool-chip"
+                  title="Rotate Right"
+                >
+                  <span>↻ Rotate Right</span>
+                </button>
+
+                <button
+                  onClick={handleClearCanvas}
+                  className="zen-tool-chip text-slate-500 hover:text-slate-800"
+                  title="Clear altar"
+                >
+                  <i data-lucide="rotate-ccw" className="w-3.5 h-3.5"></i>
+                  <span>Reset Altar</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-600">Sacred Stamps (Shift+Click):</span>
+                {[
+                  { id: 'lotus', label: '🪷 Lotus', title: 'Purity & Clarity' },
+                  { id: 'enso', label: '⭕ Enso', title: 'Zen Wholeness' },
+                  { id: 'spiral', label: '🌀 Spiral', title: 'Flow & Unwind' },
+                  { id: 'yinyang', label: '☯️ Yin-Yang', title: 'Equilibrium' }
+                ].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setActiveMandalaStamp(s.id)}
+                    className={`zen-tool-chip ${activeMandalaStamp === s.id ? 'active' : ''}`}
+                    title={s.title}
+                  >
+                    <span>{s.label}</span>
+                  </button>
+                ))}
+
+                <button
+                  onClick={handleClearCanvas}
+                  className="zen-tool-chip text-slate-500 hover:text-slate-800 ml-auto"
+                >
+                  <i data-lucide="sparkles" className="w-3.5 h-3.5"></i>
+                  <span>Smooth Sand</span>
+                </button>
+              </div>
+            )}
+
+            <div className="text-[11px] text-slate-500 font-semibold">
+              💡 {gameMode === 'zen_balance' ? 'Drag stones onto the altar to balance.' : 'Drag to rake sand • Shift+click to stamp mandalas.'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. CALM COMPLETION SCREEN */}
+      {gameState === 'completed' && (
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-200 bg-white shadow-xl space-y-6 max-w-lg mx-auto text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-3xl mx-auto shadow-sm">
+            🪨
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-black text-slate-900">✨ Grounding Complete.</h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">Take a slow deep breath before stepping back into your tasks.</p>
+          </div>
+
+          {/* Session Stats Recap */}
+          <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-left">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Duration</span>
+              <div className="text-base font-extrabold text-slate-900 mt-0.5">
+                {Math.round((durationSeconds - timeLeft) / 60)} min
+              </div>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Activity</span>
+              <div className="text-base font-extrabold text-amber-800 mt-0.5">
+                {gameMode === 'zen_balance' ? `${stonesPlaced} Stones` : 'Sand Raked'}
+              </div>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Practice</span>
+              <div className="text-xs font-bold text-slate-700 mt-0.5 truncate">
+                {gameMode === 'zen_balance' ? 'Cairn Balance' : 'Sand Mandala'}
+              </div>
+            </div>
+          </div>
+
+          {/* Question 1: How do you feel now? */}
+          <div className="space-y-2 text-left">
+            <label className="text-xs font-bold text-slate-800 block">How do you feel now?</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'better', label: 'Grounded & Clear', emoji: '🧘' },
+                { id: 'same', label: 'Same', emoji: '😐' },
+                { id: 'stressed', label: 'Still tense', emoji: '😔' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFeeling(item.id)}
+                  className={`feeling-rating-btn ${feeling === item.id ? 'selected' : ''}`}
+                >
+                  <span className="text-xl">{item.emoji}</span>
+                  <span className="text-[11px]">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 2: Did you enjoy the game? */}
+          <div className="space-y-2 text-left">
+            <label className="text-xs font-bold text-slate-800 block">Did you enjoy the tactile reset?</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'yes', label: 'Loved it', icon: '❤️' },
+                { id: 'little', label: 'A little', icon: '😐' },
+                { id: 'no', label: 'Not really', icon: '👎' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setEnjoyment(item.id)}
+                  className={`enjoyment-rating-btn ${enjoyment === item.id ? 'selected' : ''}`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+            <button
+              onClick={handleFinishAndSave}
+              className="w-full py-3.5 rounded-2xl bg-amber-800 hover:bg-amber-900 text-white font-extrabold text-sm shadow-md shadow-amber-900/20 transition-all flex items-center justify-center gap-2"
+            >
+              <i data-lucide="check-circle-2" className="w-4 h-4"></i>
+              <span>Save & Complete Reset</span>
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setGameState('setup')}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-colors"
+              >
+                Play Another Round
+              </button>
+              <button
+                onClick={onBack}
+                className="flex-1 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold border border-slate-200 transition-colors"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================================================
 // 8E. MINI GAMES HUB VIEW
 // ==========================================================================
 
 function MiniGamesHubView({
   user,
   gameSessions = [],
+  isHighStressState = false,
   onLaunchGame,
   onBack,
   onSignIn
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [user, gameSessions]);
+  }, [user, gameSessions, isHighStressState]);
 
   const totalSessions = (gameSessions || []).length;
   const totalDurationSeconds = (gameSessions || []).reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0);
@@ -6740,22 +8168,24 @@ function MiniGamesHubView({
 
       {/* Mini Games Library Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Featured Mini Game: Bubble Rhythm */}
-        <div className="minigame-card featured space-y-4 flex flex-col justify-between">
+        {/* Game 1: Bubble Rhythm */}
+        <div className={`minigame-card featured space-y-4 flex flex-col justify-between ${isHighStressState ? 'ring-2 ring-purple-400' : ''}`}>
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-md shadow-purple-500/20">
                 🫧
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">
-                ✨ Featured Reset
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
+                isHighStressState ? 'bg-purple-600 text-white animate-pulse' : 'bg-purple-100 text-purple-800 border border-purple-200'
+              }`}>
+                {isHighStressState ? '🎯 Recommended for Your Stress State' : '✨ Featured Reset'}
               </span>
             </div>
 
             <div>
               <h3 className="text-lg font-black text-slate-900">Bubble Rhythm</h3>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Pop iridescent bubbles synchronized with original relaxing procedural ambient rhythms. Combines visual satisfaction with soothing harmonic Web Audio tones.
+                Pop iridescent bubbles synchronized with original relaxing procedural ambient rhythms (64-84 BPM). Resets working memory and dissolves cognitive overwhelm.
               </p>
             </div>
 
@@ -6787,42 +8217,49 @@ function MiniGamesHubView({
           </div>
         </div>
 
-        {/* Teaser: Zen Pebble Garden */}
-        <div className="minigame-card space-y-4 flex flex-col justify-between opacity-80 hover:opacity-100">
+        {/* Game 2: Zen Pebble Garden (NEW FULL PLAYABLE GAME!) */}
+        <div className="minigame-card space-y-4 flex flex-col justify-between border-amber-200 bg-gradient-to-br from-amber-50/40 via-white to-stone-50/40 shadow-sm hover:shadow-md">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-2xl text-amber-900 shadow-2xs">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-700 to-stone-800 flex items-center justify-center text-2xl text-white shadow-md shadow-amber-800/20">
                 🪨
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wide">
-                Coming Soon
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wide">
+                🔥 New Interactive Game
               </span>
             </div>
 
             <div>
               <h3 className="text-lg font-black text-slate-900">Zen Pebble Garden</h3>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Kinetic stone stacking, soothing sand raking, and tactile sound design for grounding your nervous system during high-stress study days.
+                Physics-based stone cairn balancing, Tibetan singing bowl harmonics, drifting sakura petals, and kinetic sand mandala raking for tactile stress relief.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
-                🪨 Balance Mode
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs">
+                🪨 Cairn Balance Mode
               </span>
-              <span className="px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
-                🏖️ Sand Rake
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs">
+                🏖️ Sand Ripple & Mandala
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 shadow-2xs">
+                ⏱️ 2 – 5 min
               </span>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-            <span className="text-[11px] text-slate-400 font-semibold">In Active Development</span>
+          <div className="pt-4 border-t border-amber-100 flex items-center justify-between gap-3">
+            <div className="text-[11px] text-slate-500 font-semibold">
+              Tactile Physics • Solfeggio Bowls
+            </div>
+
             <button
-              disabled
-              className="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs cursor-not-allowed"
+              onClick={() => onLaunchGame('zen-garden')}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-700 via-amber-800 to-stone-800 hover:from-amber-800 hover:to-stone-900 text-white font-extrabold text-xs shadow-md shadow-amber-800/25 transition-all flex items-center gap-2 hover:scale-105"
             >
-              Coming Soon
+              <i data-lucide="play" className="w-4 h-4"></i>
+              <span>Play Zen Garden</span>
             </button>
           </div>
         </div>
