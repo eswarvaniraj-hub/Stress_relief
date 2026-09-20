@@ -63,14 +63,33 @@ async function me(req, res) {
 
 // POST /api/auth/logout
 function logout(req, res) {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout error:', err.message);
-      return res.status(500).json({ error: 'Could not log out' });
-    }
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    path: '/',
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax'
+  };
+
+  const clearAllCookies = () => {
+    res.clearCookie('breathly.sid', cookieOptions);
+    res.clearCookie('connect.sid', cookieOptions);
     res.clearCookie('breathly.sid');
-    res.json({ success: true });
-  });
+    res.clearCookie('connect.sid');
+  };
+
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout session destroy error:', err.message);
+      }
+      clearAllCookies();
+      return res.json({ success: true });
+    });
+  } else {
+    clearAllCookies();
+    return res.json({ success: true });
+  }
 }
 
 module.exports = { googleLogin, me, logout };

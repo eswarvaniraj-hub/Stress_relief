@@ -10,8 +10,8 @@ async function getPreferences(req, res) {
     if (rows.length === 0) {
       // Shouldn't normally happen (created at signup), but self-heal just in case.
       const { rows: fresh } = await pool.query(
-        `INSERT INTO user_preferences (user_id, theme, notification_enabled)
-         VALUES ($1, 'porcelain', TRUE)
+        `INSERT INTO user_preferences (user_id, theme, notification_enabled, daily_distraction_goal_minutes)
+         VALUES ($1, 'porcelain', TRUE, 45)
          ON CONFLICT (user_id) DO UPDATE SET theme = EXCLUDED.theme
          RETURNING *`,
         [req.userId]
@@ -28,15 +28,25 @@ async function getPreferences(req, res) {
 // PUT /api/preferences
 async function updatePreferences(req, res) {
   try {
-    const { theme, notificationEnabled } = req.body;
+    const { theme, notificationEnabled, dailyDistractionGoalMinutes } = req.body;
+    const goalMin = Number.isFinite(Number(dailyDistractionGoalMinutes))
+      ? Math.max(5, Math.min(300, Number(dailyDistractionGoalMinutes)))
+      : 45;
+
     const { rows } = await pool.query(
-      `INSERT INTO user_preferences (user_id, theme, notification_enabled)
-       VALUES ($1, $2, $3)
+      `INSERT INTO user_preferences (user_id, theme, notification_enabled, daily_distraction_goal_minutes)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id) DO UPDATE SET
-         theme = EXCLUDED.theme,
-         notification_enabled = EXCLUDED.notification_enabled
+         theme = COALESCE(EXCLUDED.theme, user_preferences.theme),
+         notification_enabled = COALESCE(EXCLUDED.notification_enabled, user_preferences.notification_enabled),
+         daily_distraction_goal_minutes = COALESCE(EXCLUDED.daily_distraction_goal_minutes, user_preferences.daily_distraction_goal_minutes)
        RETURNING *`,
-      [req.userId, theme || 'porcelain', notificationEnabled !== undefined ? !!notificationEnabled : true]
+      [
+        req.userId,
+        theme || 'porcelain',
+        notificationEnabled !== undefined ? !!notificationEnabled : true,
+        goalMin
+      ]
     );
     res.json({ preferences: rows[0] });
   } catch (err) {
