@@ -11,24 +11,35 @@
   );
 
   // In local development: use http://localhost:5000/api
-  // In production: use https://mindpace.onrender.com/api
+  // In production: use https://stress-relief.onrender.com/api
   const BASE_URL = isLocal
     ? 'http://localhost:5000/api'
-    : (window.API_BASE_URL || 'https://mindpace.onrender.com/api');
+    : (window.API_BASE_URL || 'https://stress-relief.onrender.com/api');
 
   async function request(path, options = {}) {
-    const res = await fetch(BASE_URL + path, {
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      ...options
-    });
-    let data = null;
-    try { data = await res.json(); } catch (e) {}
-    if (!res.ok) {
-      const message = (data && data.error) || `Request failed (${res.status})`;
-      throw new Error(message);
+    const controller = new AbortController();
+    const timeoutMs = options.timeout || 8000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(BASE_URL + path, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        ...options
+      });
+      clearTimeout(timeoutId);
+      let data = null;
+      try { data = await res.json(); } catch (e) { }
+      if (!res.ok) {
+        const message = (data && data.error) || `Request failed (${res.status})`;
+        throw new Error(message);
+      }
+      return data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    return data;
   }
 
   window.api = {
@@ -36,7 +47,13 @@
     loginWithGoogle: (credential) =>
       request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
     me: () => request('/auth/me'),
-    logout: () => request('/auth/logout', { method: 'POST' }),
+    logout: async () => {
+      try {
+        return await request('/auth/logout', { method: 'POST', timeout: 3000 });
+      } catch (e) {
+        return { success: true };
+      }
+    },
 
     // Onboarding & Profile
     getProfile: () => request('/profile'),
@@ -73,6 +90,8 @@
     createPressureEvent: (event) =>
       request('/pressure-events', { method: 'POST', body: JSON.stringify(event) }),
     listPressureEvents: () => request('/pressure-events'),
+    deletePressureEvent: (id) =>
+      request(`/pressure-events/${id}`, { method: 'DELETE' }),
 
     // Daily Well-Being Monitoring (Contextual 1-3 Questions)
     logDailyCheckIn: (checkInData) =>
@@ -104,6 +123,7 @@
     // Breathing / Quick Reset Sessions
     createBreathingSession: (exerciseName, durationSeconds) =>
       request('/breathing/sessions', { method: 'POST', body: JSON.stringify({ exerciseName, durationSeconds }) }),
+    listBreathingSessions: () => request('/breathing/sessions'),
 
     // Preferences
     getPreferences: () => request('/preferences'),
