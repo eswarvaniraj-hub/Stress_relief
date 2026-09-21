@@ -17,18 +17,19 @@ exports.chatWithGemini = async (req, res) => {
       });
     }
 
-    // Retrieve API key from environment variables (checking standard names)
+    // Retrieve API key from request body or environment variables
     const apiKey =
+      (req.body && req.body.apiKey) ||
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_GEMINI_API_KEY ||
       process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
-      console.warn('[Gemini Coach] GEMINI_API_KEY environment variable is not configured on server.');
+      console.warn('[Gemini Coach] GEMINI_API_KEY not configured on server or request.');
       return res.json({
         success: false,
-        reply: "I am currently running in offline adaptive mode. I'm here to support your focus and energy—would you like to start a 2-minute Bubble Rhythm break or switch to Minimum Mode?",
-        actionType: 'play-bubble-rhythm'
+        error: 'No Gemini API key configured.',
+        isOffline: true
       });
     }
 
@@ -52,18 +53,18 @@ exports.chatWithGemini = async (req, res) => {
     }
 
     // Construct System Instruction for Reset Digital Coach
-    const systemPrompt = `You are Reset Coach, a compassionate, scientifically-grounded digital well-being and habit coach built into the Breathly/Reset platform.
-Your mission is to help users overcome procrastination, cognitive overload, study friction, and burnout.
+    const systemPrompt = `You are Reset Coach, an empathetic, intelligent, and scientifically-grounded digital well-being and habit mentor built into the Breathly/Reset platform.
+Your mission is to help users with focus, overcoming procrastination, daily habits, stress management, sleep, study techniques, and mindful balance.
 
 User Context:
 ${contextSummary}
 
-Guidelines:
-1. Be warm, empathetic, clear, and concise (keep responses to 2-4 short sentences; do not write long essays).
-2. Ground your advice in gentle behavioral neuroscience (e.g. lowering friction, taking 2-minute micro-steps, protecting sleep, taking non-screen rhythm breaks).
-3. If the user feels exhausted or overwhelmed, recommend scaling down habits to 2-minute "Minimum Mode" or taking a relaxing "Bubble Rhythm" break.
-4. If the user is struggling with focus, suggest a dedicated 25-minute Pomodoro study block.
-5. Do NOT give medical or clinical diagnoses. Keep it practical, supportive, and actionable.`;
+Core Guidelines:
+1. Directly and accurately answer the user's specific question or request. Whatever the user asks—be it basic science, definitions, study advice, daily routine, or emotional check-in—address their exact inquiry first.
+2. Be warm, empathetic, conversational, and concise (keep responses to 2-4 clear sentences or short paragraphs; never lecture or write walls of text).
+3. Ground habit or focus advice in behavioral neuroscience (e.g. lowering friction, micro-steps, 25-minute Pomodoro sprints, 4-7-8 breathing, or non-screen recovery).
+4. Do NOT repeat canned scripts or force irrelevant recommendations if the user is asking a direct question.
+5. Do NOT provide clinical or medical diagnoses. Keep guidance practical, supportive, and actionable.`;
 
     const requestPayload = {
       contents: [
@@ -76,15 +77,16 @@ Guidelines:
       ],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 350,
+        maxOutputTokens: 500,
         topP: 0.9
       }
     };
 
-    // Attempt model call: start with gemini-1.5-flash, fallback to gemini-2.0-flash if needed
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+    // Attempt model call across active Gemini models
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     let geminiResponse = null;
     let selectedModel = modelsToTry[0];
+    let lastError = null;
 
     for (const model of modelsToTry) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -101,15 +103,17 @@ Guidelines:
           break;
         } else {
           const errBody = await response.text();
-          console.warn(`[Gemini Coach] ${model} returned status ${response.status}:`, errBody.substring(0, 150));
+          lastError = `${model} returned status ${response.status}: ${errBody.substring(0, 150)}`;
+          console.warn(`[Gemini Coach] ${lastError}`);
         }
       } catch (networkErr) {
-        console.warn(`[Gemini Coach] Network error calling ${model}:`, networkErr.message);
+        lastError = `Network error calling ${model}: ${networkErr.message}`;
+        console.warn(`[Gemini Coach] ${lastError}`);
       }
     }
 
     if (!geminiResponse || !geminiResponse.candidates || !geminiResponse.candidates[0]?.content?.parts?.[0]?.text) {
-      throw new Error('No candidate returned from Gemini models');
+      throw new Error(lastError || 'No valid response received from Gemini API');
     }
 
     const replyText = geminiResponse.candidates[0].content.parts[0].text.trim();
@@ -138,11 +142,9 @@ Guidelines:
 
   } catch (error) {
     console.error('[Gemini Coach Error]:', error.message);
-    // Return friendly, compassionate guidance without leaking stack trace or server internals
-    return res.json({
+    return res.status(500).json({
       success: false,
-      reply: "I hear you. When things feel heavy, even a small 2-minute pause can help reset your working memory. Would you like to take a gentle Bubble Rhythm break or switch today's habits to Minimum Mode?",
-      actionType: 'play-bubble-rhythm'
+      error: error.message || 'Error communicating with Gemini AI'
     });
   }
 };

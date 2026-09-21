@@ -5073,6 +5073,191 @@ function DistractionTrackerHubView({
 // ==========================================================================
 // 6. AI COACH VIEW ("MY COACH")
 // ==========================================================================
+// 6. COACH VIEW (GOOGLE GEMINI AI + DYNAMIC SMART CONVERSATIONAL ENGINE)
+// ==========================================================================
+
+function generateSmartCoachResponse(rawText, context, earlySignals, appState, user) {
+  const text = (rawText || '').trim();
+  const lower = text.toLowerCase();
+  const userName = (user && user.name ? user.name.split(' ')[0] : 'there');
+
+  // 1. Greetings & Social Openers (handles "hi", "hlo", "hlw", "helo", "hello", "hey", "hii", "yo", "good morning", etc.)
+  if (/^(hi+|hello+|hlo+|hlw+|helo+|hey+|greetings|good morning|good afternoon|good evening|sup|what'?s up|howdy|yo|hai)\b/i.test(lower) || lower === 'hlo' || lower === 'hlw' || lower === 'helo' || lower.startsWith('hlo') || lower.startsWith('hlw')) {
+    return {
+      reply: `Hello ${userName}! Great to connect with you. How is your energy and focus feeling today? Whether you want to talk through study goals, overcome procrastination, learn about stress neuroscience, or just need a reset, ask me anything!`,
+      actionType: null
+    };
+  }
+
+  // 2. Identity & Capabilities
+  if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('what do you do') || lower.includes('what can you do') || lower.includes('your name') || lower.includes('who made you')) {
+    return {
+      reply: `I'm Reset Coach, your personal well-being and habit mentor. I analyze your daily habits, study patterns, and distraction logs to give you science-backed advice. You can ask me how to study effectively, explain stress and burnout, how to stop phone distractions, or start a 2-minute reset exercise!`,
+      actionType: null
+    };
+  }
+
+  // 3. Gratitude & Courtesy
+  if (/^(thank you|thanks|thx|appreciate it|awesome|great job|well done)\b/i.test(lower) || lower === 'thanks' || lower === 'thank you') {
+    return {
+      reply: `You're very welcome, ${userName}! Consistency is built one tiny win at a time. I'm always here whenever you need a boost, advice, or a quick recovery pause.`,
+      actionType: null
+    };
+  }
+
+  // 4. "How are you"
+  if (lower.includes('how are you') || lower.includes('how are you doing')) {
+    return {
+      reply: `I'm doing great and ready to help you thrive! How is your cognitive bandwidth right now? Are you feeling focused, or feeling a bit of friction?`,
+      actionType: null
+    };
+  }
+
+  // 5. Educational / Concept Questions: What is stress?
+  if (lower.includes('what is stress') || lower.includes('explain stress') || lower.includes('why stress') || lower.includes('cause of stress')) {
+    return {
+      reply: `Stress is your body's evolutionary survival response. When faced with pressure, your adrenal glands release cortisol and adrenaline to heighten alertness. While acute stress can sharpen focus, chronic stress depletes working memory and leads to cognitive overload. A 2-minute Box Breathing pause or gentle walk quickly activates the vagus nerve to restore balance.`,
+      actionType: 'quick-reset'
+    };
+  }
+
+  // 6. Educational: What is burnout?
+  if (lower.includes('what is burnout') || lower.includes('explain burnout') || lower.includes('signs of burnout') || lower.includes('prevent burnout')) {
+    return {
+      reply: `Burnout is deep mental, emotional, and physical exhaustion caused by prolonged chronic friction without adequate recovery windows. Common symptoms include persistent brain fog, task cynicism, and loss of momentum. The antidote isn't forcing more effort—it's lowering daily friction, switching habits to Minimum Mode, and protecting non-negotiable sleep boundaries.`,
+      actionType: 'min-mode-all'
+    };
+  }
+
+  // 7. Educational: What is Pomodoro?
+  if (lower.includes('what is pomodoro') || lower.includes('explain pomodoro') || lower.includes('pomodoro technique') || lower.includes('pomodoro timer')) {
+    return {
+      reply: `The Pomodoro Technique is a focus system created by Francesco Cirillo: you dedicate 25 minutes of single-task focus, followed by a mandatory 5-minute non-screen rest. This aligns with human ultradian rhythms (20-30 min focus peaks), preventing mental exhaustion and helping you overcome starting friction.`,
+      actionType: 'start-focus-sprint'
+    };
+  }
+
+  // 8. Educational: What is Minimum Mode?
+  if (lower.includes('what is minimum mode') || lower.includes('minimum mode') || lower.includes('micro habit') || lower.includes('micro step')) {
+    return {
+      reply: `Minimum Mode is our behavioral shield based on BJ Fogg's Tiny Habits research. On low-energy or high-stress days, you scale down habit requirements to a 2-minute micro-dose (e.g., reading 1 page or doing 2 push-ups). This protects your neural streak and self-identity without triggering cognitive overload.`,
+      actionType: 'min-mode-all'
+    };
+  }
+
+  // 9. Educational: What is Bubble Rhythm?
+  if (lower.includes('bubble') || lower.includes('rhythm') || lower.includes('mini game') || lower.includes('game break')) {
+    return {
+      reply: `Bubble Rhythm is our mindful recovery exercise. By synchronizing bubble pops with harmonic procedural pentatonic tones (tuned to 64-84 BPM), it resets working memory without competitive pressure or social media doomscrolling.`,
+      actionType: 'play-bubble-rhythm'
+    };
+  }
+
+  // 10. Educational: What is Dopamine?
+  if (lower.includes('dopamine')) {
+    return {
+      reply: `Dopamine is the neurotransmitter of anticipation, motivation, and drive—not just pleasure. Apps and notifications exploit this by giving unpredictable reward cues, which trains your brain to crave constant novelty and makes deep, quiet study feel unnaturally difficult. Removing phone cues restores baseline dopamine sensitivity.`,
+      actionType: 'open-radar'
+    };
+  }
+
+  // 11. Educational: What is Cortisol?
+  if (lower.includes('cortisol')) {
+    return {
+      reply: `Cortisol is your primary glucocorticoid stress hormone. It naturally peaks in the morning to wake you up (the Cortisol Awakening Response). However, when elevated in the evening by deadlines or late-night screens, it disrupts deep delta-wave sleep and keeps your nervous system in hyper-vigilance.`,
+      actionType: 'quick-reset'
+    };
+  }
+
+  // 12. Educational: What is Neuroplasticity?
+  if (lower.includes('neuroplasticity')) {
+    return {
+      reply: `Neuroplasticity is your brain's ability to structurally rewire synaptic pathways through repeated experience. Under Hebbian learning ('neurons that fire together wire together'), repeating micro-habits wraps myelin around that circuit, making the positive behavior progressively effortless over weeks.`,
+      actionType: null
+    };
+  }
+
+  // 13. Educational: What is 4-7-8 Breathing or Box Breathing?
+  if (lower.includes('4-7-8') || lower.includes('box breath') || lower.includes('breathing')) {
+    return {
+      reply: `Controlled breathwork is the fastest physiological hack to influence your autonomic nervous system. 4-7-8 breathing (inhale 4s, hold 7s, exhale 8s) extends exhalation, stimulating the vagus nerve to release acetylcholine and lower heart rate. Box Breathing (4-4-4-4) stabilizes focus and reduces panic before exams or meetings.`,
+      actionType: 'quick-reset'
+    };
+  }
+
+  // 14. Actionable: Procrastination & Can't Start
+  if (lower.includes('procrastinat') || lower.includes('lazy') || lower.includes('cannot start') || lower.includes("can't start") || lower.includes('delaying') || lower.includes('motivation')) {
+    return {
+      reply: `Procrastination is an emotional regulation hurdle, not a lack of willpower. When an assignment or task feels ambiguous or large, your brain feels threatened and seeks instant comfort. Use the 2-Minute Rule: commit only to opening your notes or writing 1 line for 120 seconds. Once initiation friction is broken, momentum takes over!`,
+      actionType: 'start-focus-sprint'
+    };
+  }
+
+  // 15. Actionable: How to Focus / Study / Exams
+  if (lower.includes('focus') || lower.includes('study') || lower.includes('exam') || lower.includes('concentrat') || lower.includes('homework')) {
+    return {
+      reply: `To optimize study focus: 1) Eliminate visual distractions by placing your phone in another room, 2) Use Active Recall (self-testing instead of passive reading), 3) Work in dedicated 25-minute Pomodoro sprints, and 4) Stay hydrated—mild dehydration reduces working memory by up to 15%.`,
+      actionType: 'start-focus-sprint'
+    };
+  }
+
+  // 16. Actionable: Distractions & Phone Addiction
+  if (lower.includes('distract') || lower.includes('phone') || lower.includes('social media') || lower.includes('instagram') || lower.includes('notification') || lower.includes('doomscroll')) {
+    const topDists = appState?.distractions || [];
+    const topCat = topDists.length > 0 ? topDists[0].category : 'Digital Notifications';
+    return {
+      reply: `Distractions like "${topCat}" typically strike when task friction feels high. Try these 3 steps: 1) Turn your phone screen to Grayscale (grayscale kills visual dopamine hooks), 2) Keep the device out of arm's reach, and 3) Start a 25-minute single-task sprint with our built-in timer.`,
+      actionType: 'start-focus-sprint'
+    };
+  }
+
+  // 17. Actionable: Sleep & Insomnia
+  if (lower.includes('sleep') || lower.includes('insomnia') || lower.includes("can't sleep") || lower.includes('tired')) {
+    if (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('drain')) {
+      return {
+        reply: `I hear you. When your cognitive battery is depleted, forcing yourself through heavy tasks leads straight to burnout. Give yourself permission to scale today's habits to Minimum Mode (2-minute micro-doses) or take a relaxing 2-minute Bubble Rhythm break right now.`,
+        actionType: 'min-mode-all'
+      };
+    }
+    return {
+      reply: `To restore your sleep quality: 1) View natural outdoor sunlight for 10 minutes within 1 hour of waking, 2) Cut off caffeine 8-10 hours before sleep, 3) Dim household lights and avoid screens for 60 minutes before bed, and 4) Practice 4-7-8 breathing while lying down to trigger sleep onset.`,
+      actionType: 'quick-reset'
+    };
+  }
+
+  // 18. Actionable: Anxiety, Panic, Overwhelmed
+  if (lower.includes('anxiety') || lower.includes('anxious') || lower.includes('panic') || lower.includes('overwhelm') || lower.includes('stress') || lower.includes('worry')) {
+    return {
+      reply: `When overwhelm strikes, your prefrontal cortex is overloaded. Let's do a somatic reset: take two quick inhales through your nose followed by a long, slow exhale out through your mouth (the physiological sigh). Repeat 3 times, then write down the 1 single thing that matters most right now.`,
+      actionType: 'quick-reset'
+    };
+  }
+
+  // 19. Actionable: Habits & Routine
+  if (lower.includes('habit') || lower.includes('routine') || lower.includes('consistency') || lower.includes('streak')) {
+    return {
+      reply: `Building habits succeeds when you master Habit Stacking: attach your new habit to an existing daily anchor (e.g. 'Right after I pour my morning coffee, I will write 1 sentence'). Keep the friction under 2 minutes so you never dread showing up.`,
+      actionType: 'min-mode-all'
+    };
+  }
+
+  // 20. Telemetry / Patterns / Analytics
+  if (lower.includes('pattern') || lower.includes('trend') || lower.includes('analyze') || lower.includes('friction') || lower.includes('my log') || lower.includes('data')) {
+    const failureCount = (appState?.failureLogs || []).length;
+    const distCount = (appState?.distractions || []).length;
+    return {
+      reply: `Based on your telemetry (${distCount} logged distractions, ${failureCount} friction logs), your momentum is protected best when you structure deep work earlier in the day. On low-sleep days, switching habits to Minimum Mode prevents broken streaks.`,
+      actionType: 'open-radar'
+    };
+  }
+
+  // 21. General Thoughtful Fallback: Directly references their message
+  const cleanSummary = text.length > 55 ? text.substring(0, 52) + '...' : text;
+  return {
+    reply: `Regarding "${cleanSummary}": In behavioral well-being, the best approach is to break challenges down into manageable micro-steps. Would you like to schedule a 25-minute Pomodoro focus block, run a 2-minute breathing reset, or connect your Google Gemini API key (using the button above) for full, unrestricted AI answers on any topic?`,
+    actionType: 'start-focus-sprint'
+  };
+}
 
 function CoachView({
   user,
@@ -5089,10 +5274,16 @@ function CoachView({
   onStartFocusSession,
   onActivateMinModeAll
 }) {
+  const [geminiKey, setGeminiKey] = useState(() => (window.api && typeof window.api.getGeminiKey === 'function' ? window.api.getGeminiKey() : ''));
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testFeedback, setTestFeedback] = useState(null);
+
   const [messages, setMessages] = useState(() => [
     {
       sender: 'ai',
-      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm your Digital Well-Being & Habit Coach powered by Google Gemini. I analyze your daily habits, sleep quality, workload, and distractions to give you personalized guidance. How are you feeling right now?`
+      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm your Digital Well-Being & Habit Coach. I analyze your daily habits, sleep quality, workload, and distractions to give you personalized guidance. How are you feeling right now?`
     }
   ]);
   const [inputText, setInputText] = useState('');
@@ -5102,7 +5293,7 @@ function CoachView({
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, showKeyModal]);
 
   const quickPrompts = [
     { label: "🫧 2-minute Bubble Rhythm break", prompt: "I need a quick 2-minute mental break. How does Bubble Rhythm help?" },
@@ -5138,68 +5329,103 @@ function CoachView({
     try {
       if (window.api && typeof window.api.chatWithGemini === 'function') {
         const res = await window.api.chatWithGemini(text, contextData);
-        if (res && res.reply) {
+        if (res && res.success && res.reply) {
           setMessages(prev => [
             ...prev,
-            { sender: 'ai', text: res.reply, actionType: res.actionType }
+            { sender: 'ai', text: res.reply, actionType: res.actionType, model: res.model || 'Gemini Flash AI' }
           ]);
           setIsTyping(false);
           return;
         }
       }
-      throw new Error('Local fallback');
+      throw new Error('Fallback needed');
     } catch (err) {
-      // Graceful local fallback if offline or backend is unreachable
+      // Fall back to our extensive, dynamic smart conversational coach engine
       setTimeout(() => {
-        let aiReply = `You are currently in a ${earlySignals?.statusTitle || 'steady'} phase. ${earlySignals?.gentleNudge || 'Keep taking gentle, steady micro-steps.'}`;
-        let actionType = null;
-
-        const lower = text.toLowerCase();
-        if (lower.includes('bubble') || lower.includes('mini game') || lower.includes('game break') || lower.includes('rhythm')) {
-          aiReply = `Bubble Rhythm is designed specifically for mindful recovery. By synchronizing bubble pops with harmonic procedural pentatonic tones (64-84 BPM), it resets working memory without competitive pressure or screen stress.`;
-          actionType = 'play-bubble-rhythm';
-        } else if (lower.includes('distract') || lower.includes('phone') || lower.includes('social') || lower.includes('notification')) {
-          const topDists = appState?.distractions || [];
-          const topCat = topDists.length > 0 ? topDists[0].category : 'Social Media';
-          aiReply = `Distractions like "${topCat}" typically peak during cognitive friction or energy dips. I recommend putting your phone in another room and starting a 25-minute dedicated Focus Sprint. If you feel tired, take a 60-second breathing reset first.`;
-          actionType = 'start-focus-sprint';
-        } else if (lower.includes('pomodoro') || lower.includes('focus') || lower.includes('study block') || lower.includes('sprint')) {
-          aiReply = `Let's launch a 25-minute Pomodoro focus block right now! During the session, you can log any interruptions with 1 click without losing your timer rhythm. Ready?`;
-          actionType = 'start-focus-sprint';
-        } else if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('fatigue')) {
-          aiReply = `I hear you. When energy is depleted, forcing a full 30-minute task creates friction and burnout. Let's switch today's remaining habits to Minimum Mode (2-minute micro-doses) or take a 2-minute Bubble Rhythm break.`;
-          actionType = 'min-mode-all';
-        } else if (lower.includes('overwhelm') || lower.includes('deadline') || lower.includes('exam')) {
-          aiReply = `During heavy exam or deliverable crunch, cognitive bandwidth is precious. Protect your sleep boundary first. I suggest using Box Breathing (4-4-4-4) for laser focus and scaling down non-essential habits.`;
-          actionType = 'quick-reset';
-        } else if (lower.includes('pattern') || lower.includes('trend') || lower.includes('analyze') || lower.includes('friction')) {
-          const failureCount = (appState?.failureLogs || []).length;
-          const distCount = (appState?.distractions || []).length;
-          aiReply = `Based on your profile and recent logs (${distCount} distractions, ${failureCount} habit friction logs), your primary distraction occurs in the evening. Structuring deep work earlier and using Minimum Mode on low-sleep days will protect your momentum.`;
-          actionType = 'open-radar';
-        }
-
+        const smartRes = generateSmartCoachResponse(text, contextData, earlySignals, appState, user);
         setMessages(prev => [
           ...prev,
-          { sender: 'ai', text: aiReply, actionType }
+          { sender: 'ai', text: smartRes.reply, actionType: smartRes.actionType, model: null }
         ]);
         setIsTyping(false);
-      }, 350);
+      }, 300);
     }
+  };
+
+  const handleTestAndSaveKey = async () => {
+    if (!keyInput.trim()) {
+      setTestFeedback({ success: false, message: 'Please paste your Gemini API key first.' });
+      return;
+    }
+    setIsTestingKey(true);
+    setTestFeedback(null);
+    try {
+      const result = await window.api.testGeminiKey(keyInput.trim());
+      window.api.setGeminiKey(keyInput.trim());
+      setGeminiKey(keyInput.trim());
+      setTestFeedback({
+        success: true,
+        message: `Successfully connected to ${result.model || 'Gemini Flash'}! Your AI Coach is now fully live.`
+      });
+      setTimeout(() => {
+        setShowKeyModal(false);
+        setTestFeedback(null);
+      }, 1500);
+    } catch (err) {
+      setTestFeedback({
+        success: false,
+        message: err.message || 'Verification failed. Please check your API key and internet connection.'
+      });
+    } finally {
+      setIsTestingKey(false);
+    }
+  };
+
+  const handleDisconnectKey = () => {
+    if (window.api && window.api.setGeminiKey) {
+      window.api.setGeminiKey('');
+    }
+    setGeminiKey('');
+    setKeyInput('');
+    setTestFeedback({ success: true, message: 'Disconnected. Switched back to Built-in Smart Coach mode.' });
+    setTimeout(() => {
+      setShowKeyModal(false);
+      setTestFeedback(null);
+    }, 1000);
   };
 
   return (
     <div className="max-w-3xl mx-auto py-2 sm:py-6 animate-fade-in space-y-4">
       {/* Top Header */}
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold transition-colors">
           <i data-lucide="arrow-left" className="w-4 h-4"></i>
           <span>Back to Dashboard</span>
         </button>
 
+        {/* Gemini Connection Status & Settings Button */}
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-          <span className="text-xs font-bold text-slate-700">Coach Online & Powered by Gemini</span>
+          {geminiKey ? (
+            <button
+              onClick={() => { setKeyInput(geminiKey); setTestFeedback(null); setShowKeyModal(true); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-all shadow-sm"
+              title="Click to view Gemini settings"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Gemini AI Connected</span>
+              <i data-lucide="settings" className="w-3.5 h-3.5 ml-0.5 text-emerald-600"></i>
+            </button>
+          ) : (
+            <button
+              onClick={() => { setKeyInput(''); setTestFeedback(null); setShowKeyModal(true); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition-all shadow-sm"
+              title="Connect free Google Gemini API Key"
+            >
+              <i data-lucide="sparkles" className="w-3.5 h-3.5 text-indigo-600 animate-pulse"></i>
+              <span>Connect Gemini AI</span>
+              <span className="px-1.5 py-0.5 text-[9px] bg-indigo-200 text-indigo-800 rounded font-bold uppercase tracking-wider">Free</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -5209,8 +5435,14 @@ function CoachView({
         <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {messages.map((m, idx) => (
             <div key={idx} className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}>
+              {m.sender === 'ai' && (
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mb-1 ml-1">
+                  <i data-lucide={m.model ? "sparkles" : "bot"} className={`w-3 h-3 ${m.model ? "text-indigo-500" : "text-slate-400"}`}></i>
+                  <span>{m.model ? `Gemini Flash AI` : `Reset Smart Coach`}</span>
+                </div>
+              )}
               <div className={m.sender === 'user' ? 'coach-bubble-user max-w-md' : 'coach-bubble-ai max-w-lg'}>
-                <p className="text-sm leading-relaxed">{m.text}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
 
                 {m.actionType === 'play-bubble-rhythm' && (
                   <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
@@ -5300,7 +5532,7 @@ function CoachView({
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce"></div>
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.2s]"></div>
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.4s]"></div>
-                <span className="text-xs text-slate-500 font-medium ml-1.5">Coach is thinking...</span>
+                <span className="text-xs text-slate-500 font-medium ml-1.5">Coach is formulating guidance...</span>
               </div>
             </div>
           )}
@@ -5342,6 +5574,96 @@ function CoachView({
           </button>
         </form>
       </div>
+
+      {/* Gemini API Key Configuration Modal */}
+      {showKeyModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+                  <i data-lucide="sparkles" className="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Google Gemini AI Setup</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Power your coach with real-time conversational AI</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowKeyModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+              >
+                <i data-lucide="x" className="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3.5 text-xs text-indigo-950 space-y-2">
+              <p className="leading-relaxed">
+                Connect your free Google Gemini API key to enable open-ended reasoning for any question. Without an API key, Reset uses its built-in smart behavioral coach.
+              </p>
+              <div className="pt-1">
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-indigo-700 font-bold hover:underline text-xs"
+                >
+                  <span>Get a free key from Google AI Studio</span>
+                  <i data-lucide="external-link" className="w-3 h-3"></i>
+                </a>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">Gemini API Key</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={keyInput}
+                  onChange={(e) => setKeyInput(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:border-indigo-600 bg-slate-50"
+                />
+              </div>
+            </div>
+
+            {testFeedback && (
+              <div className={`p-3 rounded-xl text-xs font-medium ${testFeedback.success ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
+                {testFeedback.message}
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleTestAndSaveKey}
+                disabled={isTestingKey || !keyInput.trim()}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isTestingKey ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <i data-lucide="check" className="w-4 h-4"></i>
+                    <span>Test & Save Connection</span>
+                  </>
+                )}
+              </button>
+
+              {geminiKey && (
+                <button
+                  onClick={handleDisconnectKey}
+                  className="px-3 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors"
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
