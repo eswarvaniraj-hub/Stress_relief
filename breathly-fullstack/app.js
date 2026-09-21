@@ -5254,7 +5254,7 @@ function generateSmartCoachResponse(rawText, context, earlySignals, appState, us
   // 21. General Thoughtful Fallback: Directly references their message
   const cleanSummary = text.length > 55 ? text.substring(0, 52) + '...' : text;
   return {
-    reply: `Regarding "${cleanSummary}": In behavioral well-being, the best approach is to break challenges down into manageable micro-steps. Would you like to schedule a 25-minute Pomodoro focus block, run a 2-minute breathing reset, or connect your Google Gemini API key (using the button above) for full, unrestricted AI answers on any topic?`,
+    reply: `Regarding "${cleanSummary}": In behavioral well-being, the best approach is to break challenges down into manageable micro-steps. Would you like to schedule a 25-minute Pomodoro focus block or take a quick 2-minute breathing reset to recharge?`,
     actionType: 'start-focus-sprint'
   };
 }
@@ -5274,12 +5274,6 @@ function CoachView({
   onStartFocusSession,
   onActivateMinModeAll
 }) {
-  const [geminiKey, setGeminiKey] = useState(() => (window.api && typeof window.api.getGeminiKey === 'function' ? window.api.getGeminiKey() : ''));
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [keyInput, setKeyInput] = useState('');
-  const [isTestingKey, setIsTestingKey] = useState(false);
-  const [testFeedback, setTestFeedback] = useState(null);
-
   const [messages, setMessages] = useState(() => [
     {
       sender: 'ai',
@@ -5293,7 +5287,7 @@ function CoachView({
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping, showKeyModal]);
+  }, [messages, isTyping]);
 
   const quickPrompts = [
     { label: "🫧 2-minute Bubble Rhythm break", prompt: "I need a quick 2-minute mental break. How does Bubble Rhythm help?" },
@@ -5352,48 +5346,6 @@ function CoachView({
     }
   };
 
-  const handleTestAndSaveKey = async () => {
-    if (!keyInput.trim()) {
-      setTestFeedback({ success: false, message: 'Please paste your Gemini API key first.' });
-      return;
-    }
-    setIsTestingKey(true);
-    setTestFeedback(null);
-    try {
-      const result = await window.api.testGeminiKey(keyInput.trim());
-      window.api.setGeminiKey(keyInput.trim());
-      setGeminiKey(keyInput.trim());
-      setTestFeedback({
-        success: true,
-        message: `Successfully connected to ${result.model || 'Gemini Flash'}! Your AI Coach is now fully live.`
-      });
-      setTimeout(() => {
-        setShowKeyModal(false);
-        setTestFeedback(null);
-      }, 1500);
-    } catch (err) {
-      setTestFeedback({
-        success: false,
-        message: err.message || 'Verification failed. Please check your API key and internet connection.'
-      });
-    } finally {
-      setIsTestingKey(false);
-    }
-  };
-
-  const handleDisconnectKey = () => {
-    if (window.api && window.api.setGeminiKey) {
-      window.api.setGeminiKey('');
-    }
-    setGeminiKey('');
-    setKeyInput('');
-    setTestFeedback({ success: true, message: 'Disconnected. Switched back to Built-in Smart Coach mode.' });
-    setTimeout(() => {
-      setShowKeyModal(false);
-      setTestFeedback(null);
-    }, 1000);
-  };
-
   return (
     <div className="max-w-3xl mx-auto py-2 sm:py-6 animate-fade-in space-y-4">
       {/* Top Header */}
@@ -5403,29 +5355,10 @@ function CoachView({
           <span>Back to Dashboard</span>
         </button>
 
-        {/* Gemini Connection Status & Settings Button */}
-        <div className="flex items-center gap-2">
-          {geminiKey ? (
-            <button
-              onClick={() => { setKeyInput(geminiKey); setTestFeedback(null); setShowKeyModal(true); }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-all shadow-sm"
-              title="Click to view Gemini settings"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Gemini AI Connected</span>
-              <i data-lucide="settings" className="w-3.5 h-3.5 ml-0.5 text-emerald-600"></i>
-            </button>
-          ) : (
-            <button
-              onClick={() => { setKeyInput(''); setTestFeedback(null); setShowKeyModal(true); }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition-all shadow-sm"
-              title="Connect free Google Gemini API Key"
-            >
-              <i data-lucide="sparkles" className="w-3.5 h-3.5 text-indigo-600 animate-pulse"></i>
-              <span>Connect Gemini AI</span>
-              <span className="px-1.5 py-0.5 text-[9px] bg-indigo-200 text-indigo-800 rounded font-bold uppercase tracking-wider">Free</span>
-            </button>
-          )}
+        {/* Gemini AI Status Badge */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Coach Online (Gemini AI)</span>
         </div>
       </div>
 
@@ -5572,98 +5505,7 @@ function CoachView({
             <span>{isTyping ? "..." : "Send"}</span>
             <i data-lucide="send" className="w-3.5 h-3.5"></i>
           </button>
-        </form>
       </div>
-
-      {/* Gemini API Key Configuration Modal */}
-      {showKeyModal && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
-                  <i data-lucide="sparkles" className="w-5 h-5"></i>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Google Gemini AI Setup</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Power your coach with real-time conversational AI</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowKeyModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
-              >
-                <i data-lucide="x" className="w-4 h-4"></i>
-              </button>
-            </div>
-
-            <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3.5 text-xs text-indigo-950 space-y-2">
-              <p className="leading-relaxed">
-                Connect your free Google Gemini API key to enable open-ended reasoning for any question. Without an API key, Reset uses its built-in smart behavioral coach.
-              </p>
-              <div className="pt-1">
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-indigo-700 font-bold hover:underline text-xs"
-                >
-                  <span>Get a free key from Google AI Studio</span>
-                  <i data-lucide="external-link" className="w-3 h-3"></i>
-                </a>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">Gemini API Key</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  value={keyInput}
-                  onChange={(e) => setKeyInput(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:border-indigo-600 bg-slate-50"
-                />
-              </div>
-            </div>
-
-            {testFeedback && (
-              <div className={`p-3 rounded-xl text-xs font-medium ${testFeedback.success ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
-                {testFeedback.message}
-              </div>
-            )}
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={handleTestAndSaveKey}
-                disabled={isTestingKey || !keyInput.trim()}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {isTestingKey ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Verifying...</span>
-                  </>
-                ) : (
-                  <>
-                    <i data-lucide="check" className="w-4 h-4"></i>
-                    <span>Test & Save Connection</span>
-                  </>
-                )}
-              </button>
-
-              {geminiKey && (
-                <button
-                  onClick={handleDisconnectKey}
-                  className="px-3 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors"
-                >
-                  Disconnect
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

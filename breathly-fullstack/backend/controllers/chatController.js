@@ -83,7 +83,7 @@ Core Guidelines:
     };
 
     // Attempt model call across active Gemini models
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
     let geminiResponse = null;
     let selectedModel = modelsToTry[0];
     let lastError = null;
