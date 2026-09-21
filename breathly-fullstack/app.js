@@ -5081,26 +5081,26 @@ function generateSmartCoachResponse(rawText, context, earlySignals, appState, us
   const lower = text.toLowerCase();
   const userName = (user && user.name ? user.name.split(' ')[0] : 'there');
 
-  // 1. Greetings & Social Openers (handles "hi", "hlo", "hlw", "helo", "hello", "hey", "hii", "yo", "good morning", etc.)
+  // 1. Greetings & Friendly Openers
   if (/^(hi+|hello+|hlo+|hlw+|helo+|hey+|greetings|good morning|good afternoon|good evening|sup|what'?s up|howdy|yo|hai)\b/i.test(lower) || lower === 'hlo' || lower === 'hlw' || lower === 'helo' || lower.startsWith('hlo') || lower.startsWith('hlw')) {
     return {
-      reply: `Hello ${userName}! Great to connect with you. How is your energy and focus feeling today? Whether you want to talk through study goals, overcome procrastination, learn about stress neuroscience, or just need a reset, ask me anything!`,
+      reply: `Hello ${userName}! I'm really glad you reached out. How are you feeling right now? Whether you're stressed, exhausted, need to vent, or just have a question on your mind, I'm right here with you.`,
       actionType: null
     };
   }
 
-  // 2. Identity & Capabilities
-  if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('what do you do') || lower.includes('what can you do') || lower.includes('your name') || lower.includes('who made you')) {
+  // 2. Identity & Safe Haven Role
+  if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('what do you do') || lower.includes('your name') || lower.includes('who made you')) {
     return {
-      reply: `I'm Reset Coach, your personal well-being and habit mentor. I analyze your daily habits, study patterns, and distraction logs to give you science-backed advice. You can ask me how to study effectively, explain stress and burnout, how to stop phone distractions, or start a 2-minute reset exercise!`,
+      reply: `I'm your personal stress-relief companion and coach. My role isn't to judge you or tell you what to do, but to give you a comforting, safe space whenever life feels overwhelming. You can ask me about anything—food, sleep, exhaustion, handling anxiety, or simply talk through what's bothering you.`,
       actionType: null
     };
   }
 
-  // 3. Gratitude & Courtesy
+  // 3. Courtesy & Gratitude
   if (/^(thank you|thanks|thx|appreciate it|awesome|great job|well done)\b/i.test(lower) || lower === 'thanks' || lower === 'thank you') {
     return {
-      reply: `You're very welcome, ${userName}! Consistency is built one tiny win at a time. I'm always here whenever you need a boost, advice, or a quick recovery pause.`,
+      reply: `You're so welcome, ${userName}. Remember to be gentle with yourself today. I'm always right here whenever you need a listening ear or a moment to pause.`,
       actionType: null
     };
   }
@@ -5108,154 +5108,112 @@ function generateSmartCoachResponse(rawText, context, earlySignals, appState, us
   // 4. "How are you"
   if (lower.includes('how are you') || lower.includes('how are you doing')) {
     return {
-      reply: `I'm doing great and ready to help you thrive! How is your cognitive bandwidth right now? Are you feeling focused, or feeling a bit of friction?`,
+      reply: `I'm here and ready to support you! More importantly, how are you holding up today? Has it felt like a heavy day, or are you doing okay?`,
       actionType: null
     };
   }
 
-  // 5. Educational / Concept Questions: What is stress?
-  if (lower.includes('what is stress') || lower.includes('explain stress') || lower.includes('why stress') || lower.includes('cause of stress')) {
+  // 5. Food, Eating, Nutrition & Appetite (Direct User POV)
+  if (lower.includes('eat') || lower.includes('food') || lower.includes('hungry') || lower.includes('meal') || lower.includes('snack') || lower.includes('dinner') || lower.includes('lunch') || lower.includes('breakfast') || lower.includes('appetite') || lower.includes('craving') || lower.includes('diet')) {
     return {
-      reply: `Stress is your body's evolutionary survival response. When faced with pressure, your adrenal glands release cortisol and adrenaline to heighten alertness. While acute stress can sharpen focus, chronic stress depletes working memory and leads to cognitive overload. A 2-minute Box Breathing pause or gentle walk quickly activates the vagus nerve to restore balance.`,
-      actionType: 'quick-reset'
-    };
-  }
-
-  // 6. Educational: What is burnout?
-  if (lower.includes('what is burnout') || lower.includes('explain burnout') || lower.includes('signs of burnout') || lower.includes('prevent burnout')) {
-    return {
-      reply: `Burnout is deep mental, emotional, and physical exhaustion caused by prolonged chronic friction without adequate recovery windows. Common symptoms include persistent brain fog, task cynicism, and loss of momentum. The antidote isn't forcing more effort—it's lowering daily friction, switching habits to Minimum Mode, and protecting non-negotiable sleep boundaries.`,
-      actionType: 'min-mode-all'
-    };
-  }
-
-  // 7. Educational: What is Pomodoro?
-  if (lower.includes('what is pomodoro') || lower.includes('explain pomodoro') || lower.includes('pomodoro technique') || lower.includes('pomodoro timer')) {
-    return {
-      reply: `The Pomodoro Technique is a focus system created by Francesco Cirillo: you dedicate 25 minutes of single-task focus, followed by a mandatory 5-minute non-screen rest. This aligns with human ultradian rhythms (20-30 min focus peaks), preventing mental exhaustion and helping you overcome starting friction.`,
-      actionType: 'start-focus-sprint'
-    };
-  }
-
-  // 8. Educational: What is Minimum Mode?
-  if (lower.includes('what is minimum mode') || lower.includes('minimum mode') || lower.includes('micro habit') || lower.includes('micro step')) {
-    return {
-      reply: `Minimum Mode is our behavioral shield based on BJ Fogg's Tiny Habits research. On low-energy or high-stress days, you scale down habit requirements to a 2-minute micro-dose (e.g., reading 1 page or doing 2 push-ups). This protects your neural streak and self-identity without triggering cognitive overload.`,
-      actionType: 'min-mode-all'
-    };
-  }
-
-  // 9. Educational: What is Bubble Rhythm?
-  if (lower.includes('bubble') || lower.includes('rhythm') || lower.includes('mini game') || lower.includes('game break')) {
-    return {
-      reply: `Bubble Rhythm is our mindful recovery exercise. By synchronizing bubble pops with harmonic procedural pentatonic tones (tuned to 64-84 BPM), it resets working memory without competitive pressure or social media doomscrolling.`,
-      actionType: 'play-bubble-rhythm'
-    };
-  }
-
-  // 10. Educational: What is Dopamine?
-  if (lower.includes('dopamine')) {
-    return {
-      reply: `Dopamine is the neurotransmitter of anticipation, motivation, and drive—not just pleasure. Apps and notifications exploit this by giving unpredictable reward cues, which trains your brain to crave constant novelty and makes deep, quiet study feel unnaturally difficult. Removing phone cues restores baseline dopamine sensitivity.`,
-      actionType: 'open-radar'
-    };
-  }
-
-  // 11. Educational: What is Cortisol?
-  if (lower.includes('cortisol')) {
-    return {
-      reply: `Cortisol is your primary glucocorticoid stress hormone. It naturally peaks in the morning to wake you up (the Cortisol Awakening Response). However, when elevated in the evening by deadlines or late-night screens, it disrupts deep delta-wave sleep and keeps your nervous system in hyper-vigilance.`,
-      actionType: 'quick-reset'
-    };
-  }
-
-  // 12. Educational: What is Neuroplasticity?
-  if (lower.includes('neuroplasticity')) {
-    return {
-      reply: `Neuroplasticity is your brain's ability to structurally rewire synaptic pathways through repeated experience. Under Hebbian learning ('neurons that fire together wire together'), repeating micro-habits wraps myelin around that circuit, making the positive behavior progressively effortless over weeks.`,
+      reply: `When you're feeling stressed or low on energy, deciding what to eat feels like huge work. The best approach is comfort and low effort:\n\n• Warm & comforting: A bowl of warm soup or broth, oatmeal with a little honey, or warm buttered toast.\n• Easy nourishing snacks: A banana with peanut butter, a handful of nuts (almonds/walnuts), or a piece of dark chocolate (great for calming magnesium).\n• Gentle hydration: A warm cup of chamomile or herbal tea, or warm milk.\n\nDon't stress about eating 'perfectly' right now. Pick whatever is quickest, warm, and requires the least effort to get down.`,
       actionType: null
     };
   }
 
-  // 13. Educational: What is 4-7-8 Breathing or Box Breathing?
-  if (lower.includes('4-7-8') || lower.includes('box breath') || lower.includes('breathing')) {
+  // 6. Exhaustion, Depletion, Tiredness & Low Energy
+  if (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('drain') || lower.includes('no energy') || lower.includes("can't do this") || lower.includes('heavy') || lower.includes('weak')) {
     return {
-      reply: `Controlled breathwork is the fastest physiological hack to influence your autonomic nervous system. 4-7-8 breathing (inhale 4s, hold 7s, exhale 8s) extends exhalation, stimulating the vagus nerve to release acetylcholine and lower heart rate. Box Breathing (4-4-4-4) stabilizes focus and reduces panic before exams or meetings.`,
-      actionType: 'quick-reset'
+      reply: `I hear how completely exhausted you are, and your body is giving you an honest signal. When you've been carrying tension, hitting a wall is totally natural. Rest is not a reward you must earn—it is a basic human necessity. Give yourself full permission to step back, lie down, close your eyes, or take a nap without any guilt.`,
+      actionType: null
     };
   }
 
-  // 14. Actionable: Procrastination & Can't Start
-  if (lower.includes('procrastinat') || lower.includes('lazy') || lower.includes('cannot start') || lower.includes("can't start") || lower.includes('delaying') || lower.includes('motivation')) {
+  // 7. Sadness, Heartbreak, Crying, Grief & Loneliness
+  if (lower.includes('sad') || lower.includes('cry') || lower.includes('lonely') || lower.includes('alone') || lower.includes('hopeless') || lower.includes('hurt') || lower.includes('heartbroken') || lower.includes('breakup') || lower.includes('unhappy') || lower.includes('empty')) {
     return {
-      reply: `Procrastination is an emotional regulation hurdle, not a lack of willpower. When an assignment or task feels ambiguous or large, your brain feels threatened and seeks instant comfort. Use the 2-Minute Rule: commit only to opening your notes or writing 1 line for 120 seconds. Once initiation friction is broken, momentum takes over!`,
-      actionType: 'start-focus-sprint'
+      reply: `I'm so sorry you're carrying this deep heaviness. Experiencing sadness or heartbreak can feel so isolating, but please know that what you're feeling is completely human and valid. You don't have to force a smile or pretend to be okay. Cry if you need to, wrap up warmly, and take it one gentle breath at a time. I'm right here with you.`,
+      actionType: null
     };
   }
 
-  // 15. Actionable: How to Focus / Study / Exams
-  if (lower.includes('focus') || lower.includes('study') || lower.includes('exam') || lower.includes('concentrat') || lower.includes('homework')) {
+  // 8. Anger, Frustration, Irritation & Feeling Unfairly Treated
+  if (lower.includes('angry') || lower.includes('mad') || lower.includes('annoy') || lower.includes('hate') || lower.includes('frustrat') || lower.includes('unfair') || lower.includes('pissed') || lower.includes('irritat')) {
     return {
-      reply: `To optimize study focus: 1) Eliminate visual distractions by placing your phone in another room, 2) Use Active Recall (self-testing instead of passive reading), 3) Work in dedicated 25-minute Pomodoro sprints, and 4) Stay hydrated—mild dehydration reduces working memory by up to 15%.`,
-      actionType: 'start-focus-sprint'
+      reply: `You have every right to feel angry and frustrated. Holding everything inside when things feel unfair or people push past your boundaries is exhausting. Anger is just a healthy boundary signal that something crossed a line. Let yourself feel it without judging yourself for having the emotion.`,
+      actionType: null
     };
   }
 
-  // 16. Actionable: Distractions & Phone Addiction
+  // 9. Anxiety, Overwhelm, Panic & Racing Thoughts
+  if (lower.includes('anxi') || lower.includes('panic') || lower.includes('overwhelm') || lower.includes('worry') || lower.includes('scared') || lower.includes('fear') || lower.includes('overthinking') || lower.includes('nervous') || lower.includes('shaking') || lower.includes('freaking out')) {
+    return {
+      reply: `Take a slow, deep breath with me right now. When overwhelm strikes, your mind starts racing into worst-case futures that aren't happening in this exact room. Drop your shoulders away from your ears, unclamp your jaw, and feel the solid ground beneath your feet. You are safe in this exact moment, and we can take this one second at a time.`,
+      actionType: lower.includes('breath') ? 'quick-reset' : null
+    };
+  }
+
+  // 10. Self-Doubt, Guilt & Feeling "Not Enough"
+  if (lower.includes('failure') || lower.includes('not good enough') || lower.includes('guilt') || lower.includes('hate myself') || lower.includes('useless') || lower.includes('loser') || lower.includes('regret') || lower.includes('mistake')) {
+    return {
+      reply: `Please speak gently to yourself. You are dealing with so much, and you are doing the best you can with the emotional energy you have today. Having a hard day or struggling does not make you a failure. Your worth as a human is never measured by productivity or perfection. You deserve compassion, especially from yourself.`,
+      actionType: null
+    };
+  }
+
+  // 11. Sleep, Insomnia & Restlessness
+  if (lower.includes('sleep') || lower.includes('insomnia') || lower.includes("can't sleep") || lower.includes('bed') || lower.includes('nightmare')) {
+    return {
+      reply: `Tossing and turning when your mind is racing is so frustrating. The best trick is to take the pressure off 'trying' to sleep—just lying down with your eyes closed in a dim, quiet room gives your body and brain restorative rest. Try taking slow, lengthened exhales, or put on soft ambient sounds to give your thoughts a place to rest.`,
+      actionType: null
+    };
+  }
+
+  // 12. Entertainment, Comfort, Movies, Fun & Unwinding
+  if (lower.includes('movie') || lower.includes('watch') || lower.includes('music') || lower.includes('song') || lower.includes('show') || lower.includes('relax') || lower.includes('fun') || lower.includes('bored') || lower.includes('cozy') || lower.includes('game')) {
+    return {
+      reply: `Indulging in comfort and low-stress entertainment is wonderful self-care. Try putting on a familiar, heartwarming movie or comedy sitcom (something cozy where you already know the ending), fixing a warm drink, getting under a cozy blanket, or listening to calm acoustic tracks. You fully deserve to just unplug and relax without needing to be productive.`,
+      actionType: lower.includes('bubble') ? 'play-bubble-rhythm' : null
+    };
+  }
+
+  // 13. Procrastination, Work, Exams & Academic Pressure
+  if (lower.includes('procrastinat') || lower.includes('study') || lower.includes('focus') || lower.includes('exam') || lower.includes('deadline') || lower.includes('assignment') || lower.includes('homework')) {
+    return {
+      reply: `When work or studying feels impossible to start, it's usually because the pile feels too intimidating, not because you're lazy. Give yourself permission to do the bare minimum: just open your notebook or look at 1 question for 2 minutes. No pressure to finish everything—just breaking the initial freeze is a massive win.`,
+      actionType: lower.includes('timer') ? 'start-focus-sprint' : null
+    };
+  }
+
+  // 14. Phone Addiction, Social Media & Noise
   if (lower.includes('distract') || lower.includes('phone') || lower.includes('social media') || lower.includes('instagram') || lower.includes('notification') || lower.includes('doomscroll')) {
-    const topDists = appState?.distractions || [];
-    const topCat = topDists.length > 0 ? topDists[0].category : 'Digital Notifications';
     return {
-      reply: `Distractions like "${topCat}" typically strike when task friction feels high. Try these 3 steps: 1) Turn your phone screen to Grayscale (grayscale kills visual dopamine hooks), 2) Keep the device out of arm's reach, and 3) Start a 25-minute single-task sprint with our built-in timer.`,
-      actionType: 'start-focus-sprint'
+      reply: `Doomscrolling happens naturally when you're overwhelmed and your brain is searching for quick dopamine relief from stress. Instead of feeling guilty, try setting your phone face-down across the room for just 15 minutes, or step outside for a breath of fresh air to give your senses a quiet break.`,
+      actionType: null
     };
   }
 
-  // 17. Actionable: Sleep & Insomnia
-  if (lower.includes('sleep') || lower.includes('insomnia') || lower.includes("can't sleep") || lower.includes('tired')) {
-    if (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('drain')) {
-      return {
-        reply: `I hear you. When your cognitive battery is depleted, forcing yourself through heavy tasks leads straight to burnout. Give yourself permission to scale today's habits to Minimum Mode (2-minute micro-doses) or take a relaxing 2-minute Bubble Rhythm break right now.`,
-        actionType: 'min-mode-all'
-      };
-    }
+  // 15. Physical Tension, Headaches & Stress in the Body
+  if (lower.includes('headache') || lower.includes('neck') || lower.includes('back hurt') || lower.includes('shoulder') || lower.includes('tension') || lower.includes('body')) {
     return {
-      reply: `To restore your sleep quality: 1) View natural outdoor sunlight for 10 minutes within 1 hour of waking, 2) Cut off caffeine 8-10 hours before sleep, 3) Dim household lights and avoid screens for 60 minutes before bed, and 4) Practice 4-7-8 breathing while lying down to trigger sleep onset.`,
-      actionType: 'quick-reset'
+      reply: `Our bodies carry emotional stress physically—tight shoulders, a clenched jaw, or tension headaches are classic signs of holding onto pressure. Try doing a gentle shoulder roll, drinking a large glass of water, and applying a warm cloth or heating pad to your neck to let those muscles soften.`,
+      actionType: null
     };
   }
 
-  // 18. Actionable: Anxiety, Panic, Overwhelmed
-  if (lower.includes('anxiety') || lower.includes('anxious') || lower.includes('panic') || lower.includes('overwhelm') || lower.includes('stress') || lower.includes('worry')) {
+  // 16. What is Stress / Burnout (Educational)
+  if (lower.includes('what is stress') || lower.includes('what is burnout') || lower.includes('why stress')) {
     return {
-      reply: `When overwhelm strikes, your prefrontal cortex is overloaded. Let's do a somatic reset: take two quick inhales through your nose followed by a long, slow exhale out through your mouth (the physiological sigh). Repeat 3 times, then write down the 1 single thing that matters most right now.`,
-      actionType: 'quick-reset'
+      reply: `Stress is your body's survival system releasing hormones like cortisol and adrenaline to protect you under pressure. When pressure lasts too long without true rest, it turns into burnout—leaving you emotionally and physically depleted. Healing comes from reducing pressure and giving yourself genuine recovery windows.`,
+      actionType: null
     };
   }
 
-  // 19. Actionable: Habits & Routine
-  if (lower.includes('habit') || lower.includes('routine') || lower.includes('consistency') || lower.includes('streak')) {
-    return {
-      reply: `Building habits succeeds when you master Habit Stacking: attach your new habit to an existing daily anchor (e.g. 'Right after I pour my morning coffee, I will write 1 sentence'). Keep the friction under 2 minutes so you never dread showing up.`,
-      actionType: 'min-mode-all'
-    };
-  }
-
-  // 20. Telemetry / Patterns / Analytics
-  if (lower.includes('pattern') || lower.includes('trend') || lower.includes('analyze') || lower.includes('friction') || lower.includes('my log') || lower.includes('data')) {
-    const failureCount = (appState?.failureLogs || []).length;
-    const distCount = (appState?.distractions || []).length;
-    return {
-      reply: `Based on your telemetry (${distCount} logged distractions, ${failureCount} friction logs), your momentum is protected best when you structure deep work earlier in the day. On low-sleep days, switching habits to Minimum Mode prevents broken streaks.`,
-      actionType: 'open-radar'
-    };
-  }
-
-  // 21. General Thoughtful Fallback: Directly references their message
-  const cleanSummary = text.length > 55 ? text.substring(0, 52) + '...' : text;
+  // 17. General Empathetic Listener Fallback (User POV & Thought Validation)
+  const cleanSummary = text.length > 50 ? text.substring(0, 48) + '...' : text;
   return {
-    reply: `Regarding "${cleanSummary}": In behavioral well-being, the best approach is to break challenges down into manageable micro-steps. Would you like to schedule a 25-minute Pomodoro focus block or take a quick 2-minute breathing reset to recharge?`,
-    actionType: 'start-focus-sprint'
+    reply: `I hear you regarding "${cleanSummary}". When you're carrying stress, whatever you are feeling or thinking right now is completely natural and valid. You don't have to figure everything out all at once. Take it one moment at a time—how can I best support or listen to you right now?`,
+    actionType: null
   };
 }
 
@@ -5277,7 +5235,7 @@ function CoachView({
   const [messages, setMessages] = useState(() => [
     {
       sender: 'ai',
-      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm your Digital Well-Being & Habit Coach. I analyze your daily habits, sleep quality, workload, and distractions to give you personalized guidance. How are you feeling right now?`
+      text: `Hello ${user ? user.name?.split(' ')[0] : 'there'}! I'm here to listen, support, and help you navigate whatever stress or overwhelm you're carrying today. You can talk to me about anything—how you're feeling, food and sleep when exhausted, work pressure, or just taking a breath. What's on your mind?`
     }
   ]);
   const [inputText, setInputText] = useState('');
@@ -5290,12 +5248,12 @@ function CoachView({
   }, [messages, isTyping]);
 
   const quickPrompts = [
-    { label: "🫧 2-minute Bubble Rhythm break", prompt: "I need a quick 2-minute mental break. How does Bubble Rhythm help?" },
-    { label: "📱 Reduce phone & app distractions", prompt: "How can I reduce phone, social media, and notification distractions while studying?" },
-    { label: "🎯 Plan a 25m Pomodoro focus sprint", prompt: "Help me structure a focused 25-minute study sprint with zero distractions." },
-    { label: "😴 Exhausted & low energy today", prompt: "I feel completely exhausted and have no energy today." },
-    { label: "📚 Overwhelmed with exams & deadlines", prompt: "I feel overwhelmed with upcoming exams and deadlines." },
-    { label: "🔍 Analyze my focus vs distraction trends", prompt: "Analyze my recent study focus blocks and distraction patterns." }
+    { label: "🍵 What to eat or drink when stressed?", prompt: "I'm stressed and hungry with low energy. What can I easily eat or drink right now?" },
+    { label: "😴 Completely exhausted & low energy", prompt: "I feel completely exhausted and have no energy today." },
+    { label: "🧠 Mind won't stop racing & overthinking", prompt: "My mind won't stop racing and overthinking right now." },
+    { label: "📚 Overwhelmed with deadlines & pressure", prompt: "I feel overwhelmed with work, studies, and upcoming deadlines." },
+    { label: "🫧 Need a calming 2-minute mental reset", prompt: "Can you guide me through a quick, comforting relaxation reset?" },
+    { label: "💭 Just need to vent and talk through my feelings", prompt: "I just need a safe space to vent about what's on my mind." }
   ];
 
   const handleSend = async (textToSend) => {
