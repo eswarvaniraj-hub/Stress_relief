@@ -5505,6 +5505,7 @@ function CoachView({
             <span>{isTyping ? "..." : "Send"}</span>
             <i data-lucide="send" className="w-3.5 h-3.5"></i>
           </button>
+        </form>
       </div>
     </div>
   );
