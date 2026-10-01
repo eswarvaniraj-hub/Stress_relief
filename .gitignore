@@ -1,4 +1,4 @@
-# Dependencies
+90# Dependencies
 node_modules/
 **/node_modules/
 
@@ -10,3 +10,15 @@ node_modules/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Python & ML Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.joblib
+*.pkl
+.venv/
+venv/
+backend/ml/models/*.json
+backend/ml/models/*.joblib
+

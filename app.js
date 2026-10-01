@@ -197,13 +197,19 @@ const DEFAULT_INITIAL_STATE = {
   upcomingPressures: [],
   resetsHistory: [],
   gameSessions: [],
+  interventionHistory: [],
   isShieldModeActive: false
 };
 
 // Sanitizer to clean legacy demo/mock items from browser localStorage
 function sanitizeLoadedState(savedState) {
   if (!savedState || typeof savedState !== 'object') return DEFAULT_INITIAL_STATE;
-  const sanitized = { ...DEFAULT_INITIAL_STATE, ...savedState, isShieldModeActive: !!savedState.isShieldModeActive };
+  const sanitized = {
+    ...DEFAULT_INITIAL_STATE,
+    ...savedState,
+    isShieldModeActive: !!savedState.isShieldModeActive,
+    interventionHistory: Array.isArray(savedState.interventionHistory) ? savedState.interventionHistory : []
+  };
 
   // Filter out any legacy mock distraction objects with dist-1..dist-6 IDs
   if (Array.isArray(sanitized.distractions)) {
@@ -1379,6 +1385,10 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
+  // AI Stress Prediction & Personalized Well-Being Recommendations
+  const [wellbeingRecommendations, setWellbeingRecommendations] = useState(null);
+  const [activeIntervention, setActiveIntervention] = useState(null);
+
   // Load all user profile, habits, check-ins, sessions, pressure events, and preferences from PostgreSQL
   const loadUserDataFromServer = async () => {
     if (!window.api) return;
@@ -1556,6 +1566,16 @@ function App() {
                 targetDate: g.target_date
               }))
             }));
+          }
+        } catch (e) {}
+      }
+
+      // 11. AI Stress Prediction & Personalized Well-Being Recommendations
+      if (window.api.getRecommendations) {
+        try {
+          const recRes = await window.api.getRecommendations();
+          if (recRes && recRes.recommendations) {
+            setWellbeingRecommendations(recRes);
           }
         } catch (e) {}
       }
@@ -2093,8 +2113,52 @@ function App() {
     if (user && window.api?.logDailyCheckIn) {
       try {
         await window.api.logDailyCheckIn(checkInData);
+        // Refresh personalized recommendations and stress prediction with fresh check-in data
+        if (window.api?.getRecommendations) {
+          const updatedRecs = await window.api.getRecommendations();
+          if (updatedRecs) setWellbeingRecommendations(updatedRecs);
+        }
       } catch (err) {
         console.warn('Failed to sync check-in with server:', err);
+      }
+    }
+
+    if (window.confetti) window.confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+  };
+
+  // --- PERSONALIZED WELL-BEING INTERVENTION HANDLERS ---
+  const handleStartIntervention = (type, title, interventionObj) => {
+    setActiveIntervention({
+      type,
+      title: title || 'Well-Being Session',
+      defaultDurationMin: interventionObj?.defaultDurationMin || 10,
+      description: interventionObj?.description || '',
+      personalizedReason: interventionObj?.personalizedReason || ''
+    });
+  };
+
+  const handleCompleteIntervention = async (feedbackData) => {
+    const newSession = {
+      id: 'interv-' + Date.now(),
+      ...feedbackData,
+      completedAt: new Date().toISOString()
+    };
+
+    setAppState(prev => ({
+      ...prev,
+      interventionHistory: [newSession, ...(prev.interventionHistory || [])]
+    }));
+
+    if (user && window.api?.completeIntervention) {
+      try {
+        await window.api.completeIntervention(feedbackData);
+        // Re-fetch recommendations to factor in this new feedback
+        if (window.api?.getRecommendations) {
+          const recRes = await window.api.getRecommendations();
+          if (recRes) setWellbeingRecommendations(recRes);
+        }
+      } catch (err) {
+        console.warn('Failed to sync intervention completion:', err);
       }
     }
 
@@ -2381,6 +2445,8 @@ function App() {
             onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
             onAddDistraction={() => setShowAddDistractionModal(true)}
             onAddPressure={() => setShowPressureModal(true)}
+            wellbeingRecommendations={wellbeingRecommendations}
+            onStartIntervention={handleStartIntervention}
             onSignIn={() => setCurrentView('login')}
           />
         )}
@@ -2582,6 +2648,15 @@ function App() {
         />
       )}
 
+      {/* Personalized Well-Being Guided Intervention & Feedback Modal */}
+      {activeIntervention && (
+        <InterventionModal
+          intervention={activeIntervention}
+          onComplete={handleCompleteIntervention}
+          onCancel={() => setActiveIntervention(null)}
+        />
+      )}
+
       {/* 10-Second Anti-Paralysis De-escalator Modal */}
       {showDeEscalatorModal && (
         <DeEscalatorModal
@@ -2704,7 +2779,7 @@ function HeaderNav({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-                RESET
+                Breathly
               </span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-widest">
                 WELL-BEING
@@ -3245,7 +3320,7 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset 
           Achieve your goals without burning out.
         </h1>
         <p className="text-base sm:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-          Reset learns your daily rhythm, detects early friction before stress spikes, and scales habit difficulty with Minimum Mode.
+          Breathly learns your daily rhythm, detects early friction before stress spikes, and scales habit difficulty with Minimum Mode.
         </p>
       </div>
 
@@ -3483,26 +3558,33 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
           </div>
         </div>
 
-        {/* Optional stress slider & quick note */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex-1 flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-slate-600 whitespace-nowrap">Pressure:</span>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={stressRating}
-              onChange={(e) => setStressRating(parseInt(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-            <span className="text-xs font-bold text-indigo-700 w-7 text-right">{stressRating}/10</span>
+        {/* Ground-truth stress rating: 0 = Completely relaxed, 10 = Extremely stressed */}
+        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+              <span>How stressed do you feel right now?</span>
+              <span className="font-extrabold text-indigo-700">{stressRating}/10</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">0 (Relaxed)</span>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                value={stressRating}
+                onChange={(e) => setStressRating(parseInt(e.target.value))}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+              <span className="text-[10px] text-slate-400">10 (Extreme)</span>
+            </div>
           </div>
 
           <button
             type="submit"
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 self-end sm:self-center"
           >
-            Save Daily Pulse ✓
+            <i data-lucide="check" className="w-3.5 h-3.5"></i>
+            <span>Save Daily Pulse</span>
           </button>
         </div>
       </form>
@@ -3769,6 +3851,511 @@ function DistractionDashboardCard({
 }
 
 // ==========================================================================
+// 4C. PERSONALIZED AI WELL-BEING & STRESS INTERVENTION CARD
+// ==========================================================================
+
+function PersonalizedWellBeingCard({
+  user,
+  profile,
+  checkInStatus,
+  earlySignals,
+  recommendationsData,
+  onStartIntervention,
+  onQuickReset,
+  onOpenMiniGames,
+  onOpenCoach,
+  onOpenDistractions,
+  onSignIn
+}) {
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [recommendationsData, earlySignals, isDismissed]);
+
+  if (isDismissed) return null;
+
+  const pred = recommendationsData?.prediction;
+  const recs = recommendationsData?.recommendations;
+  const primary = recs?.primary;
+  const alternatives = recs?.alternatives || [];
+
+  // Check if real data exists
+  const hasSufficientData = pred?.hasSufficientData !== false && (pred?.score !== null && pred?.score !== undefined);
+
+  // Derive stress risk category and trend
+  const stressCategory = hasSufficientData ? pred.category : 'Baseline';
+  const stressLevel = hasSufficientData ? pred.level : 'low';
+  const stressTrend = pred?.trend || {
+    trend: 'stable',
+    label: 'Gathering Baseline',
+    description: 'Keep checking in for a few days so Breathly can understand your patterns.'
+  };
+
+  const signals = pred?.signals || earlySignals?.riskSignals || [];
+
+  // Default fallback primary if not yet loaded from server
+  const fallbackPrimary = {
+    type: 'social_connection',
+    title: 'Connect With Someone You Trust',
+    tag: 'Social Connection',
+    shortLabel: 'Connect with someone',
+    description: 'Consider spending some time with someone you trust today — a friend, family member, or someone you feel comfortable with.',
+    personalizedReason: 'Matches your well-being baseline and helps ease daily cognitive load.',
+    actionRoute: 'social',
+    defaultDurationMin: 15
+  };
+
+  const activePrimary = primary || fallbackPrimary;
+
+  // Handle clicking the primary recommendation action
+  const handlePrimaryClick = () => {
+    if (activePrimary.type === 'bubble_rhythm' && onOpenMiniGames) {
+      onOpenMiniGames('bubble-rhythm', 'rhythm_pop');
+    } else if (activePrimary.type === 'breathing' && onQuickReset) {
+      onQuickReset(ACTIVITIES['breathing-426']);
+    } else if (activePrimary.type === 'companion_chat' && onOpenCoach) {
+      onOpenCoach();
+    } else if (onStartIntervention) {
+      onStartIntervention(activePrimary.type, activePrimary.title, activePrimary);
+    }
+  };
+
+  const handleActionClick = (item) => {
+    if (item.type === 'bubble_rhythm' && onOpenMiniGames) {
+      onOpenMiniGames('bubble-rhythm', 'rhythm_pop');
+    } else if (item.type === 'breathing' && onQuickReset) {
+      onQuickReset(ACTIVITIES['breathing-426']);
+    } else if (item.type === 'companion_chat' && onOpenCoach) {
+      onOpenCoach();
+    } else if (onStartIntervention) {
+      onStartIntervention(item.type, item.title, item);
+    }
+  };
+
+  // Full alternative choice chips (allows complete user autonomy)
+  const quickOptions = [
+    { type: 'social_connection', title: 'Connect With Someone You Trust', shortLabel: '👥 Connect with someone', icon: 'users', defaultDurationMin: 15 },
+    { type: 'outdoor_walk', title: 'Outdoor Walk & Change of Scene', shortLabel: '🚶 Take a short walk', icon: 'footprints', defaultDurationMin: 12 },
+    { type: 'breathing', title: 'Guided Resonant Breathing', shortLabel: '🫁 Try breathing', icon: 'wind', defaultDurationMin: 2 },
+    { type: 'bubble_rhythm', title: 'Bubble Rhythm Tactile Flow', shortLabel: '🫧 Play Bubble Rhythm', icon: 'sparkles', defaultDurationMin: 2 },
+    { type: 'companion_chat', title: 'Talk to Breathly Coach', shortLabel: '💬 Talk to Breathly', icon: 'bot', defaultDurationMin: 5 },
+    { type: 'short_break', title: '5-Minute Screen-Free Break', shortLabel: '☕ Take a short break', icon: 'coffee', defaultDurationMin: 5 }
+  ];
+
+  const remainingOptions = quickOptions.filter(o => o.type !== activePrimary.type);
+
+  return (
+    <div className="wellbeing-ai-card p-5 sm:p-6 space-y-4 animate-fade-in">
+      {/* Top Meta Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+            <i data-lucide="sparkles" className="w-4 h-4"></i>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-extrabold text-slate-900">Personalized Well-Being Intelligence</h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Adaptive Care
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500">Non-diagnostic contextual monitoring & tailored interventions</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsDismissed(true)}
+          className="text-[11px] text-slate-400 hover:text-slate-700 transition-colors self-end sm:self-center"
+          title="Dismiss card for now"
+        >
+          Later
+        </button>
+      </div>
+
+      {/* State & Trend Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {/* Left Column: Well-Being State & Trend */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Current Well-Being State</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+              stressCategory === 'High' ? 'status-badge-demanding' :
+              stressCategory === 'Moderate' ? 'status-badge-elevated' :
+              'status-badge-calm'
+            }`}>
+              {hasSufficientData ? `${stressCategory} Stress Risk` : 'Gathering Baseline'}
+            </span>
+          </div>
+
+          {/* Stress Trend Status */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800">
+                Stress Trend:
+              </span>
+              <span className={`trend-pill ${
+                stressTrend.trend === 'increasing' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
+                stressTrend.trend === 'decreasing' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                'bg-slate-100 text-slate-700 border border-slate-200'
+              }`}>
+                {stressTrend.trend === 'increasing' && '📈 Increasing'}
+                {stressTrend.trend === 'decreasing' && '📉 Decreasing'}
+                {stressTrend.trend === 'stable' && '➡️ Stable'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {stressTrend.description}
+            </p>
+          </div>
+
+          {/* Contextual Signals (Only Genuine Real Signals, No Fake Stats) */}
+          {signals.length > 0 && (
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
+              {signals.slice(0, 3).map((sig, idx) => (
+                <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 text-[10px] font-medium border border-slate-200">
+                  • {sig}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Personalized Primary Recommendation */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 border border-indigo-100 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase tracking-wide">
+                ✨ Recommended For You
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">{activePrimary.tag}</span>
+            </div>
+
+            <h4 className="text-sm font-extrabold text-slate-900 leading-snug">
+              {activePrimary.title}
+            </h4>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {activePrimary.description}
+            </p>
+
+            {activePrimary.personalizedReason && (
+              <p className="text-[11px] text-indigo-700/90 font-medium italic pt-1">
+                💡 {activePrimary.personalizedReason}
+              </p>
+            )}
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={handlePrimaryClick}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+            >
+              <span>[ {activePrimary.shortLabel} ]</span>
+              <i data-lucide="arrow-right" className="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Alternative Options Row (User Freedom to Choose Any Option) */}
+      <div className="pt-2 border-t border-slate-100 space-y-2">
+        <span className="text-[11px] font-bold text-slate-500 block">
+          Other Options (Choose What Feels Right Today):
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {remainingOptions.map((opt) => (
+            <button
+              key={opt.type}
+              onClick={() => handleActionClick(opt)}
+              className="intervention-chip-btn hover:border-indigo-300"
+            >
+              <span>{opt.shortLabel}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
+// 4D. GUIDED WELL-BEING INTERVENTION & FEEDBACK MODAL
+// ==========================================================================
+
+function InterventionModal({
+  intervention,
+  onComplete,
+  onCancel
+}) {
+  const [step, setStep] = useState('active'); // 'active' | 'feedback' | 'done'
+  const [stressBefore, setStressBefore] = useState(6);
+  const [stressAfter, setStressAfter] = useState(3);
+  const [feeling, setFeeling] = useState('better');
+  const [enjoyment, setEnjoyment] = useState('yes');
+  const [notes, setNotes] = useState('');
+  const [timerSeconds, setTimerSeconds] = useState((intervention.defaultDurationMin || 10) * 60);
+  const [isRunning, setIsRunning] = useState(true);
+
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [step]);
+
+  useEffect(() => {
+    let timer = null;
+    if (isRunning && timerSeconds > 0 && step === 'active') {
+      timer = setInterval(() => setTimerSeconds(prev => Math.max(0, prev - 1)), 1000);
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, [isRunning, timerSeconds, step]);
+
+  const formatTime = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const handleFinishActivity = () => {
+    setIsRunning(false);
+    setStep('feedback');
+  };
+
+  const handleSubmitFeedback = (e) => {
+    e.preventDefault();
+    const plannedSec = (intervention.defaultDurationMin || 10) * 60;
+    const actualSec = Math.max(30, plannedSec - timerSeconds);
+    onComplete({
+      interventionType: intervention.type,
+      title: intervention.title,
+      durationSeconds: actualSec,
+      stressBefore: Number(stressBefore),
+      stressAfter: Number(stressAfter),
+      feeling,
+      enjoyment,
+      notes
+    });
+    setStep('done');
+  };
+
+  const getGuidanceNote = (type) => {
+    switch (type) {
+      case 'social_connection':
+        return 'Call a trusted friend or family member, send a warm check-in message, or invite someone for a short coffee or tea break. You don’t need to talk about stress unless you want to — simple presence brings your nervous system into safety.';
+      case 'outdoor_walk':
+        return 'Step outside or into open air. Keep your gaze broad and relaxed. Walk at an unhurried, natural pace for 10–15 minutes to shift your environment.';
+      case 'breathing':
+        return 'Settle comfortably. Soften your jaw and shoulders. Resonant breathing (e.g. 4-2-6 or Coherent 5-5) gently balances autonomic arousal.';
+      case 'light_exercise':
+        return 'Shoulder rolls, gentle neck releases, and standing stretches. Move with ease to release physical tension without strain.';
+      case 'short_break':
+        return 'Step completely away from screens and keyboards. Hydrate, rest your eyes on the distance, and give your nervous system a gentle reset.';
+      case 'sleep_wind_down':
+        return 'Dim ambient lights, put devices on Do Not Disturb, and ease into a restorative 4-7-8 rhythm for peaceful rest.';
+      default:
+        return 'Take this time completely for yourself. Give yourself permission to pause.';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 relative overflow-hidden">
+        {/* Top Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <i data-lucide="heart" className="w-5 h-5"></i>
+            </span>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Personalized Intervention</span>
+              <h3 className="text-base font-extrabold text-slate-900">{intervention.title}</h3>
+            </div>
+          </div>
+
+          <button
+            onClick={onCancel}
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <i data-lucide="x" className="w-5 h-5"></i>
+          </button>
+        </div>
+
+        {/* STEP 1: ACTIVE SESSION & GUIDANCE */}
+        {step === 'active' && (
+          <div className="space-y-5 text-left">
+            {/* Pre-Intervention Stress Rating */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>How stressed do you feel right now? (0–10)</span>
+                <span className="font-extrabold text-indigo-700">{stressBefore}/10</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">0 (Relaxed)</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={stressBefore}
+                  onChange={(e) => setStressBefore(parseInt(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400">10 (Extreme)</span>
+              </div>
+            </div>
+
+            {/* Guidance Content */}
+            <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-xs text-slate-700 leading-relaxed">
+              <p className="font-bold text-slate-900 mb-1">🌿 Gentle Guidance:</p>
+              {getGuidanceNote(intervention.type)}
+            </div>
+
+            {/* Peaceful Timer Display */}
+            <div className="text-center py-2 space-y-2">
+              <div className="text-4xl font-extrabold font-mono tracking-tight text-slate-900">
+                {formatTime(timerSeconds)}
+              </div>
+              <p className="text-xs text-slate-500">
+                {isRunning ? 'Activity in progress • Take all the time you need' : 'Timer paused'}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRunning(!isRunning)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
+              >
+                {isRunning ? 'Pause Timer' : 'Resume Timer'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFinishActivity}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/25 transition-all flex items-center gap-1.5 hover:scale-105"
+              >
+                <span>Complete Activity & Reflect</span>
+                <i data-lucide="check" className="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: LEARNING WHAT WORKS FOR YOU (POST-ACTIVITY FEEDBACK) */}
+        {step === 'feedback' && (
+          <form onSubmit={handleSubmitFeedback} className="space-y-4 text-left">
+            <div className="text-center space-y-1 pb-1">
+              <h4 className="text-base font-extrabold text-slate-900">✨ How do you feel now?</h4>
+              <p className="text-xs text-slate-500">Your feedback teaches Breathly what activities help you most.</p>
+            </div>
+
+            {/* 4 Feeling Options */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'better', label: '🌟 Better' },
+                { id: 'same', label: '🍃 About the same' },
+                { id: 'stressed', label: '⚡ Still stressed' },
+                { id: 'worse', label: '🌧️ Worse' }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFeeling(f.id)}
+                  className={`feedback-option-btn ${feeling === f.id ? 'selected' : ''}`}
+                >
+                  <span>{f.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Stress After Rating */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>How stressed do you feel right now? (0–10)</span>
+                <span className="font-extrabold text-indigo-700">{stressAfter}/10</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">0 (Relaxed)</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={stressAfter}
+                  onChange={(e) => setStressAfter(parseInt(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400">10 (Extreme)</span>
+              </div>
+              {stressBefore !== null && (
+                <p className="text-[11px] text-emerald-700 font-semibold pt-0.5">
+                  Change: {stressBefore} → {stressAfter} {stressBefore > stressAfter ? `(↓ ${stressBefore - stressAfter} pts improvement)` : ''}
+                </p>
+              )}
+            </div>
+
+            {/* Enjoyment Option */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Did you enjoy this activity?</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'yes', label: '👍 Yes' },
+                  { id: 'little', label: '👌 A little' },
+                  { id: 'no', label: '👎 Not really' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setEnjoyment(opt.id)}
+                    className={`py-2 rounded-xl border text-xs font-bold transition-all ${
+                      enjoyment === opt.id
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/25 transition-all flex items-center justify-center gap-2"
+              >
+                <span>Save & Record Feedback</span>
+                <i data-lucide="check" className="w-4 h-4"></i>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* STEP 3: DONE CONFIRMATION */}
+        {step === 'done' && (
+          <div className="text-center py-4 space-y-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-xl font-bold">
+              ✓
+            </div>
+            <h4 className="text-base font-extrabold text-slate-900">Feedback Recorded</h4>
+            <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+              Thank you! Breathly noted how this activity impacted your well-being. Future recommendations will adapt to what works best for you.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={onCancel}
+                className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition-all"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
 // 5. DASHBOARD VIEW (PERSONALIZED DIGITAL WELL-BEING EXPERIENCE)
 // ==========================================================================
 
@@ -3809,6 +4396,8 @@ function DashboardView({
   onStartFocusSession,
   onAddDistraction,
   onAddPressure,
+  wellbeingRecommendations,
+  onStartIntervention,
   onSignIn
 }) {
   useEffect(() => {
@@ -4115,6 +4704,21 @@ function DashboardView({
           </div>
         )}
       </div>
+
+      {/* AI STRESS PREDICTION & PERSONALIZED WELL-BEING RECOMMENDATION SYSTEM */}
+      <PersonalizedWellBeingCard
+        user={user}
+        profile={profile}
+        checkInStatus={checkInStatus}
+        earlySignals={earlySignals}
+        recommendationsData={wellbeingRecommendations}
+        onStartIntervention={onStartIntervention}
+        onQuickReset={onQuickReset}
+        onOpenMiniGames={onOpenMiniGames}
+        onOpenCoach={onOpenCoach}
+        onOpenDistractions={onOpenDistractions}
+        onSignIn={onSignIn}
+      />
 
       {/* Daily Well-Being Monitoring Widget */}
       <DailyCheckInCard
@@ -5329,7 +5933,7 @@ function CoachView({
               {m.sender === 'ai' && (
                 <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mb-1 ml-1">
                   <i data-lucide={m.model ? "sparkles" : "bot"} className={`w-3 h-3 ${m.model ? "text-indigo-500" : "text-slate-400"}`}></i>
-                  <span>{m.model ? `Gemini Flash AI` : `Reset Smart Coach`}</span>
+                  <span>{m.model ? `Gemini Flash AI` : `Breathly Smart Coach`}</span>
                 </div>
               )}
               <div className={m.sender === 'user' ? 'coach-bubble-user max-w-md' : 'coach-bubble-ai max-w-lg'}>
@@ -9720,7 +10324,7 @@ function LoginView({ user, googleClientId, setGoogleClientId, onGoogleSuccess, o
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Welcome to Reset</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Welcome to Breathly</h2>
           <p className="text-xs text-slate-600 mt-1">Sign in with Google to sync your adaptive habits & well-being baseline across all devices.</p>
         </div>
 
@@ -9913,7 +10517,7 @@ function FooterNav({ user, currentView, setCurrentView, onOpenSafety, onOpenPriv
   return (
     <footer className="border-t border-slate-200 py-6 px-4 text-center text-xs text-slate-500 bg-white/70 z-10">
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p>© 2026 Reset — Personal Adaptive Habit & Digital Well-Being Coach.</p>
+        <p>© 2026 Breathly — Personal Adaptive Habit & Digital Well-Being Coach.</p>
         <div className="flex items-center space-x-4">
           <button onClick={() => setCurrentView('minigames')} className="hover:text-slate-900 font-medium">Mini Games</button>
           <button onClick={() => setCurrentView('distractions')} className="hover:text-slate-900 font-medium">Distractions & Focus</button>

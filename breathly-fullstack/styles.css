@@ -1569,6 +1569,111 @@ h1, h2, h3, h4, h5, h6 {
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
 }
 
+/* ==========================================================================
+   20. PERSONALIZED AI WELL-BEING & INTERVENTION SYSTEM
+   ========================================================================== */
+
+.wellbeing-ai-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 1.75rem;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 4px 10px -2px rgba(15, 23, 42, 0.02);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.wellbeing-ai-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4f46e5 0%, #06b6d4 50%, #10b981 100%);
+}
+
+.intervention-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.intervention-chip-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.status-badge-calm {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.status-badge-elevated {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.status-badge-demanding {
+  background: #fff1f2;
+  color: #9f1239;
+  border-color: #fecdd3;
+}
+
+.trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.feedback-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  border-radius: 1rem;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.feedback-option-btn:hover {
+  border-color: #6366f1;
+  background: #f8fafc;
+  transform: translateY(-2px);
+}
+
+.feedback-option-btn.selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #312e81;
+  box-shadow: 0 0 0 1px #4f46e5;
+}
+
+
 
 
 

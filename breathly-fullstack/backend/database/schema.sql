@@ -268,3 +268,24 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_game_user_played ON game_sessions(user_id, played_at);
 
+-- 16. Personalized Well-Being Interventions & Learning Feedback
+CREATE TABLE IF NOT EXISTS intervention_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  intervention_type VARCHAR(100) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  duration_seconds INT NOT NULL DEFAULT 0,
+  stress_before SMALLINT NULL,
+  stress_after SMALLINT NULL,
+  improvement SMALLINT NULL,
+  feeling VARCHAR(50) NULL,
+  enjoyment VARCHAR(50) NULL,
+  notes TEXT NULL,
+  recommendation_score NUMERIC(5, 2) NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMPTZ NULL,
+  CONSTRAINT fk_intervention_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_user ON intervention_sessions(user_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_intervention_user_type ON intervention_sessions(user_id, intervention_type);
+

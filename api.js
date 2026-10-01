@@ -83,15 +83,29 @@
     deleteGoal: (id) =>
       request(`/goals/${id}`, { method: 'DELETE' }),
 
-    // Stress & Pressure Events
+    // Stress & Pressure Events (AI Prediction + Trend)
     createStressRecord: (stressLevel, notes = '') =>
       request('/stress', { method: 'POST', body: JSON.stringify({ stressLevel, notes }) }),
     listStressRecords: () => request('/stress'),
+    getCurrentStress: () => request('/stress/current'),
+    getStressTrend: () => request('/stress/trend'),
+    predictStress: (thresholds) =>
+      request('/stress/predict', { method: 'POST', body: JSON.stringify({ thresholds }) }),
     createPressureEvent: (event) =>
       request('/pressure-events', { method: 'POST', body: JSON.stringify(event) }),
     listPressureEvents: () => request('/pressure-events'),
     deletePressureEvent: (id) =>
       request(`/pressure-events/${id}`, { method: 'DELETE' }),
+
+    // Personalized Well-Being Interventions & Feedback Loop
+    getRecommendations: (timeOfDay) =>
+      request('/interventions/recommendations' + (timeOfDay ? '?timeOfDay=' + encodeURIComponent(timeOfDay) : '')),
+    startIntervention: (interventionType, title, stressBefore) =>
+      request('/interventions/start', { method: 'POST', body: JSON.stringify({ interventionType, title, stressBefore }) }),
+    completeIntervention: (data) =>
+      request('/interventions/complete', { method: 'POST', body: JSON.stringify(data) }),
+    getInterventionHistory: () => request('/interventions/history'),
+    getInterventionEffectiveness: () => request('/interventions/effectiveness'),
 
     // Daily Well-Being Monitoring (Contextual 1-3 Questions)
     logDailyCheckIn: (checkInData) =>
