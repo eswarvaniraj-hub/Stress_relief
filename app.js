@@ -2394,6 +2394,7 @@ function App() {
             onStartOnboarding={() => setCurrentView('onboarding')}
             onDirectDashboard={() => setCurrentView('dashboard')}
             onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
+            onGoToLogin={() => setCurrentView('login')}
           />
         )}
 
@@ -2696,6 +2697,7 @@ function App() {
       {showSettingsModal && (
         <SettingsModal
           user={user}
+          onSignIn={() => { setShowSettingsModal(false); setCurrentView('login'); }}
           onSignOut={handleSignOut}
           googleClientId={googleClientId}
           setGoogleClientId={setGoogleClientId}
@@ -2946,9 +2948,10 @@ function HeaderNav({
           ) : (
             <button
               onClick={onGoToLogin}
-              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow-sm"
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 hover:scale-105"
             >
-              Sign In
+              <i data-lucide="log-in" className="w-3.5 h-3.5"></i>
+              <span>Sign In</span>
             </button>
           )}
         </div>
@@ -3303,7 +3306,7 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
 // 3. LANDING VIEW
 // ==========================================================================
 
-function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset }) {
+function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset, onGoToLogin }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
   }, []);
@@ -3324,22 +3327,34 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset 
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-        <button
-          onClick={onStartOnboarding}
-          className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 hover:scale-105"
-        >
-          <span>✨ Personalize My Daily Flow</span>
-          <i data-lucide="arrow-right" className="w-4 h-4"></i>
-        </button>
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <button
+            onClick={onStartOnboarding}
+            className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 hover:scale-105"
+          >
+            <span>✨ Personalize My Daily Flow</span>
+            <i data-lucide="arrow-right" className="w-4 h-4"></i>
+          </button>
 
-        <button
-          onClick={onQuickReset}
-          className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2"
-        >
-          <i data-lucide="wind" className="w-4 h-4 text-teal-600"></i>
-          <span>Try 60s Breathing Reset</span>
-        </button>
+          <button
+            onClick={onQuickReset}
+            className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2"
+          >
+            <i data-lucide="wind" className="w-4 h-4 text-teal-600"></i>
+            <span>Try 60s Breathing Reset</span>
+          </button>
+        </div>
+
+        {!user && onGoToLogin && (
+          <p className="text-xs text-slate-500 pt-1">
+            Already have an account?{' '}
+            <button onClick={onGoToLogin} className="text-indigo-600 font-bold hover:underline inline-flex items-center gap-1">
+              <span>Sign In with Google</span>
+              <i data-lucide="arrow-right" className="w-3 h-3"></i>
+            </button>
+          </p>
+        )}
       </div>
 
       {/* Feature Highlights Grid */}
@@ -10399,6 +10414,7 @@ function SafetyModal({ onClose }) {
 function SettingsModal({
   user,
   onSignOut,
+  onSignIn,
   theme,
   setTheme,
   soundEnabled,
@@ -10497,7 +10513,17 @@ function SettingsModal({
               </button>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="pt-3 border-t border-slate-200">
+            <button
+              onClick={onSignIn}
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
+            >
+              <i data-lucide="log-in" className="w-4 h-4"></i>
+              <span>Sign In with Google</span>
+            </button>
+          </div>
+        )}
 
         {/* Clear Data */}
         <div className="pt-2 border-t border-slate-200">
@@ -10518,7 +10544,12 @@ function FooterNav({ user, currentView, setCurrentView, onOpenSafety, onOpenPriv
     <footer className="border-t border-slate-200 py-6 px-4 text-center text-xs text-slate-500 bg-white/70 z-10">
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
         <p>© 2026 Breathly — Personal Adaptive Habit & Digital Well-Being Coach.</p>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {!user && (
+            <button onClick={() => setCurrentView('login')} className="text-indigo-600 font-bold hover:underline">
+              Sign In
+            </button>
+          )}
           <button onClick={() => setCurrentView('minigames')} className="hover:text-slate-900 font-medium">Mini Games</button>
           <button onClick={() => setCurrentView('distractions')} className="hover:text-slate-900 font-medium">Distractions & Focus</button>
           <button onClick={() => setCurrentView('coach')} className="hover:text-slate-900 font-medium">My Coach</button>
