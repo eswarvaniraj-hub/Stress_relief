@@ -2359,228 +2359,328 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative overflow-hidden bg-[#f8fafc] text-slate-900">
-      {/* Soft Ambient Background Glows */}
-      <div className="ambient-glow-orb-1"></div>
-      <div className="ambient-glow-orb-2"></div>
-
-      {/* Header Navigation */}
-      <HeaderNav
+    <div className="min-h-screen bg-[#f7f8f6] text-[#18201d] flex flex-col relative selection:bg-[#e8f3ed] selection:text-[#1b4332]">
+      {/* Fixed Left Sidebar on Desktop */}
+      <SidebarNav
         currentView={currentView}
         setCurrentView={setCurrentView}
         user={user}
         onSignOut={handleSignOut}
         onGoToLogin={() => setCurrentView('login')}
-        onQuickReset={() => startQuickReset(earlySignals.recommendedActivity || ACTIVITIES['breathing-426'])}
+        onOpenSettings={() => setCurrentView('profile')}
         onOpenSafety={() => setShowSafetyModal(true)}
-        onOpenSettings={() => setShowSettingsModal(true)}
         onOpenPrivacy={() => setShowPrivacyModal(true)}
         onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
         isShieldModeActive={isShieldModeActive}
         onToggleShieldMode={handleToggleShieldMode}
-        theme={appState.theme}
-        setTheme={handleSetThemeAndMode}
-        soundEnabled={appState.soundEnabled}
-        toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-        ambientSound={appState.ambientSound}
-        setAmbientSound={(s) => setAppState(prev => ({ ...prev, ambientSound: s }))}
+        earlySignals={earlySignals}
       />
 
-      {/* Main Dynamic View Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 z-10">
-        {currentView === 'landing' && (
-          <LandingView
-            user={user}
-            onStartOnboarding={() => setCurrentView('onboarding')}
-            onDirectDashboard={() => setCurrentView('dashboard')}
-            onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
-            onGoToLogin={() => setCurrentView('login')}
-          />
-        )}
+      {/* Main Content Area Offset for Desktop Sidebar */}
+      <div className="md:pl-64 flex-1 flex flex-col min-h-screen">
+        <TopHeaderBar
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          user={user}
+          onGoToLogin={() => setCurrentView('login')}
+          onQuickReset={() => startQuickReset(earlySignals.recommendedActivity || ACTIVITIES['breathing-426'])}
+          onOpenSafety={() => setShowSafetyModal(true)}
+          onOpenSettings={() => setCurrentView('profile')}
+          onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
+          isShieldModeActive={isShieldModeActive}
+          onToggleShieldMode={handleToggleShieldMode}
+          theme={appState.theme}
+          setTheme={handleSetThemeAndMode}
+          soundEnabled={appState.soundEnabled}
+          toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+        />
 
-        {currentView === 'onboarding' && (
-          <OnboardingWizard
-            initialProfile={appState.profile}
-            onComplete={handleCompleteOnboarding}
-            onCancel={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
-          />
-        )}
+        {/* Centered Main View Container */}
+        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 pb-24 md:pb-12 z-10">
+          {currentView === 'landing' && (
+            <LandingView
+              user={user}
+              onStartOnboarding={() => setCurrentView('onboarding')}
+              onDirectDashboard={() => setCurrentView('dashboard')}
+              onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
+              onGoToLogin={() => setCurrentView('login')}
+            />
+          )}
 
-        {currentView === 'dashboard' && (
-          <DashboardView
-            user={user}
-            profile={appState.profile}
-            habits={appState.habits}
-            goals={appState.goals}
-            theme={appState.theme}
-            setTheme={handleSetThemeAndMode}
-            wellbeing={wellbeing}
-            earlySignals={earlySignals}
-            insights={insights}
-            upcomingPressures={appState.upcomingPressures}
-            checkInStatus={checkInStatus}
-            distractions={appState.distractions}
-            focusSessions={appState.focusSessions}
-            distractionGoalMinutes={appState.distractionGoalMinutes}
-            frictionForecast={frictionForecast}
-            isShieldModeActive={isShieldModeActive}
-            isHighStressState={isHighStressState}
-            onToggleShieldMode={handleToggleShieldMode}
-            onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
-            onSaveDailyCheckIn={handleSaveDailyCheckIn}
-            onToggleHabit={handleToggleHabit}
-            onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
-            onEditHabit={(h) => { setEditingHabit(h); setShowHabitModal(true); }}
-            onDeleteHabit={handleDeleteHabit}
-            onOpenFailureModal={(habit) => { setActiveFailureHabit(habit); setShowFailureModal(true); }}
-            onQuickReset={startQuickReset}
-            onOpenCoach={() => setCurrentView('coach')}
-            onOpenGoals={() => setCurrentView('goals')}
-            onOpenWeeklyReport={() => setCurrentView('weekly-report')}
-            onOpenDistractions={() => setCurrentView('distractions')}
-            onOpenMiniGames={(gameKey, mode) => {
-              setSelectedMiniGameMode(mode || (gameKey === 'zen-garden' ? 'zen_balance' : 'rhythm_pop'));
-              setCurrentView(gameKey === 'zen-garden' ? 'zen-garden' : 'bubble-rhythm');
-            }}
-            onOpenMiniGamesHub={() => setCurrentView('minigames')}
-            onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
-            onAddDistraction={() => setShowAddDistractionModal(true)}
-            onAddPressure={() => setShowPressureModal(true)}
-            wellbeingRecommendations={wellbeingRecommendations}
-            onStartIntervention={handleStartIntervention}
-            onSignIn={() => setCurrentView('login')}
-          />
-        )}
+          {currentView === 'onboarding' && (
+            <OnboardingWizard
+              initialProfile={appState.profile}
+              onComplete={handleCompleteOnboarding}
+              onCancel={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
+            />
+          )}
 
-        {currentView === 'minigames' && (
-          <MiniGamesHubView
-            user={user}
-            gameSessions={appState.gameSessions || []}
-            isHighStressState={isHighStressState}
-            onLaunchGame={(gameKey, mode) => {
-              if (gameKey === 'zen-garden' || gameKey === 'zen_balance' || gameKey === 'sand_ripple') {
-                setSelectedMiniGameMode(mode || 'zen_balance');
-                setCurrentView('zen-garden');
-              } else {
+          {currentView === 'dashboard' && (
+            <DashboardView
+              user={user}
+              profile={appState.profile}
+              habits={appState.habits}
+              goals={appState.goals}
+              theme={appState.theme}
+              setTheme={handleSetThemeAndMode}
+              wellbeing={wellbeing}
+              earlySignals={earlySignals}
+              insights={insights}
+              upcomingPressures={appState.upcomingPressures}
+              checkInStatus={checkInStatus}
+              distractions={appState.distractions}
+              focusSessions={appState.focusSessions}
+              distractionGoalMinutes={appState.distractionGoalMinutes}
+              frictionForecast={frictionForecast}
+              isShieldModeActive={isShieldModeActive}
+              isHighStressState={isHighStressState}
+              onToggleShieldMode={handleToggleShieldMode}
+              onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
+              onSaveDailyCheckIn={handleSaveDailyCheckIn}
+              onToggleHabit={handleToggleHabit}
+              onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
+              onEditHabit={(h) => { setEditingHabit(h); setShowHabitModal(true); }}
+              onDeleteHabit={handleDeleteHabit}
+              onOpenFailureModal={(habit) => { setActiveFailureHabit(habit); setShowFailureModal(true); }}
+              onQuickReset={startQuickReset}
+              onOpenCoach={() => setCurrentView('coach')}
+              onOpenGoals={() => setCurrentView('goals')}
+              onOpenWeeklyReport={() => setCurrentView('weekly-report')}
+              onOpenDistractions={() => setCurrentView('distractions')}
+              onOpenMiniGames={(gameKey, mode) => {
+                setSelectedMiniGameMode(mode || (gameKey === 'zen-garden' ? 'zen_balance' : 'rhythm_pop'));
+                setCurrentView(gameKey === 'zen-garden' ? 'zen-garden' : 'bubble-rhythm');
+              }}
+              onOpenMiniGamesHub={() => setCurrentView('minigames')}
+              onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
+              onAddDistraction={() => setShowAddDistractionModal(true)}
+              onAddPressure={() => setShowPressureModal(true)}
+              wellbeingRecommendations={wellbeingRecommendations}
+              onStartIntervention={handleStartIntervention}
+              onSignIn={() => setCurrentView('login')}
+            />
+          )}
+
+          {currentView === 'stress' && (
+            <StressHubView
+              earlySignals={earlySignals}
+              frictionForecast={frictionForecast}
+              upcomingPressures={appState.upcomingPressures}
+              isShieldModeActive={isShieldModeActive}
+              onToggleShieldMode={handleToggleShieldMode}
+              onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
+              onQuickReset={startQuickReset}
+              onAddPressure={() => setShowPressureModal(true)}
+              onBack={() => setCurrentView('dashboard')}
+            />
+          )}
+
+          {currentView === 'habits' && (
+            <HabitsHubView
+              habits={appState.habits}
+              goals={appState.goals}
+              onToggleHabit={handleToggleHabit}
+              onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
+              onEditHabit={(h) => { setEditingHabit(h); setShowHabitModal(true); }}
+              onDeleteHabit={handleDeleteHabit}
+              onOpenFailureModal={(habit) => { setActiveFailureHabit(habit); setShowFailureModal(true); }}
+              isShieldModeActive={isShieldModeActive}
+              onToggleShieldMode={handleToggleShieldMode}
+            />
+          )}
+
+          {currentView === 'breathing' && (
+            <BreathingHubView
+              onQuickReset={startQuickReset}
+              soundEnabled={appState.soundEnabled}
+              toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+            />
+          )}
+
+          {currentView === 'journal' && (
+            <JournalHubView
+              profile={appState.profile}
+              upcomingPressures={appState.upcomingPressures}
+              checkInStatus={checkInStatus}
+              onSaveDailyCheckIn={handleSaveDailyCheckIn}
+              onOpenMiniGames={(gameKey, mode) => {
                 setSelectedMiniGameMode(mode || 'rhythm_pop');
                 setCurrentView('bubble-rhythm');
-              }
-            }}
-            onBack={() => setCurrentView('dashboard')}
-            onSignIn={() => setCurrentView('login')}
-          />
-        )}
+              }}
+            />
+          )}
 
-        {currentView === 'bubble-rhythm' && (
-          <BubbleRhythmGame
-            user={user}
-            initialMode={selectedMiniGameMode || 'rhythm_pop'}
-            initialPreset="calm"
-            initialDuration={180}
-            onSaveSession={handleSaveGameSession}
-            onBack={() => setCurrentView('minigames')}
-          />
-        )}
+          {currentView === 'profile' && (
+            <ProfileHubView
+              user={user}
+              profile={appState.profile}
+              theme={appState.theme}
+              setTheme={handleSetThemeAndMode}
+              soundEnabled={appState.soundEnabled}
+              toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+              ambientSound={appState.ambientSound}
+              setAmbientSound={(s) => setAppState(prev => ({ ...prev, ambientSound: s }))}
+              onRedoOnboarding={() => setCurrentView('onboarding')}
+              onClearData={() => {
+                if (confirm('Are you sure you want to clear all local wellbeing logs and habits?')) {
+                  localStorage.clear();
+                  window.location.reload();
+                }
+              }}
+              onSignOut={handleSignOut}
+              onSignIn={() => setCurrentView('login')}
+              onOpenSafety={() => setShowSafetyModal(true)}
+              onOpenPrivacy={() => setShowPrivacyModal(true)}
+            />
+          )}
 
-        {currentView === 'zen-garden' && (
-          <ZenPebbleGame
-            user={user}
-            initialMode={selectedMiniGameMode || 'zen_balance'}
-            initialDuration={180}
-            onSaveSession={handleSaveGameSession}
-            onBack={() => setCurrentView('minigames')}
-          />
-        )}
+          {currentView === 'minigames' && (
+            <MiniGamesHubView
+              user={user}
+              gameSessions={appState.gameSessions || []}
+              isHighStressState={isHighStressState}
+              onLaunchGame={(gameKey, mode) => {
+                if (gameKey === 'zen-garden' || gameKey === 'zen_balance' || gameKey === 'sand_ripple') {
+                  setSelectedMiniGameMode(mode || 'zen_balance');
+                  setCurrentView('zen-garden');
+                } else {
+                  setSelectedMiniGameMode(mode || 'rhythm_pop');
+                  setCurrentView('bubble-rhythm');
+                }
+              }}
+              onBack={() => setCurrentView('dashboard')}
+              onSignIn={() => setCurrentView('login')}
+            />
+          )}
 
-        {currentView === 'distractions' && (
-          <DistractionTrackerHubView
-            user={user}
-            distractions={appState.distractions || []}
-            focusSessions={appState.focusSessions || []}
-            distractionGoalMinutes={appState.distractionGoalMinutes || 45}
-            habits={appState.habits || []}
-            wellbeing={wellbeing}
-            earlySignals={earlySignals}
-            insights={insights}
-            onBack={() => setCurrentView('dashboard')}
-            onAddDistraction={() => setShowAddDistractionModal(true)}
-            onDeleteDistraction={handleDeleteDistraction}
-            onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
-            onUpdateGoal={handleUpdateDistractionGoal}
-            onQuickReset={startQuickReset}
-            onSignIn={() => setCurrentView('login')}
-          />
-        )}
+          {currentView === 'bubble-rhythm' && (
+            <BubbleRhythmGame
+              user={user}
+              initialMode={selectedMiniGameMode || 'rhythm_pop'}
+              initialPreset="calm"
+              initialDuration={180}
+              onSaveSession={handleSaveGameSession}
+              onBack={() => setCurrentView('minigames')}
+            />
+          )}
 
-        {currentView === 'coach' && (
-          <CoachView
-            user={user}
-            appState={appState}
-            wellbeing={wellbeing}
-            earlySignals={earlySignals}
-            distractions={appState.distractions}
-            focusSessions={appState.focusSessions}
-            onToggleHabit={handleToggleHabit}
-            onQuickReset={startQuickReset}
-            onBack={() => setCurrentView('dashboard')}
-            onOpenDistractions={() => setCurrentView('distractions')}
-            onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
-            onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Focused Study Sprint', durationMin: 25 })}
-            onActivateMinModeAll={() => {
-              setAppState(prev => ({
-                ...prev,
-                habits: prev.habits.map(h => h.todayStatus === null ? { ...h, todayStatus: 'min', currentStreak: h.currentStreak + 1 } : h)
-              }));
-              alert('⚡ All remaining daily goals adjusted to Minimum Mode! Streaks protected.');
-            }}
-          />
-        )}
+          {currentView === 'zen-garden' && (
+            <ZenPebbleGame
+              user={user}
+              initialMode={selectedMiniGameMode || 'zen_balance'}
+              initialDuration={180}
+              onSaveSession={handleSaveGameSession}
+              onBack={() => setCurrentView('minigames')}
+            />
+          )}
 
-        {currentView === 'goals' && (
-          <GoalsView
-            goals={appState.goals}
-            habits={appState.habits}
-            onBack={() => setCurrentView('dashboard')}
-            onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
-          />
-        )}
+          {currentView === 'distractions' && (
+            <DistractionTrackerHubView
+              user={user}
+              distractions={appState.distractions || []}
+              focusSessions={appState.focusSessions || []}
+              distractionGoalMinutes={appState.distractionGoalMinutes || 45}
+              habits={appState.habits || []}
+              wellbeing={wellbeing}
+              earlySignals={earlySignals}
+              insights={insights}
+              onBack={() => setCurrentView('dashboard')}
+              onAddDistraction={() => setShowAddDistractionModal(true)}
+              onDeleteDistraction={handleDeleteDistraction}
+              onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
+              onUpdateGoal={handleUpdateDistractionGoal}
+              onQuickReset={startQuickReset}
+              onSignIn={() => setCurrentView('login')}
+            />
+          )}
 
-        {currentView === 'weekly-report' && (
-          <WeeklyReportView
-            appState={appState}
-            wellbeing={wellbeing}
-            earlySignals={earlySignals}
-            distractions={appState.distractions}
-            focusSessions={appState.focusSessions}
-            distractionGoalMinutes={appState.distractionGoalMinutes}
-            onBack={() => setCurrentView('dashboard')}
-            onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
-            onOpenDistractions={() => setCurrentView('distractions')}
-          />
-        )}
+          {currentView === 'coach' && (
+            <CoachView
+              user={user}
+              appState={appState}
+              wellbeing={wellbeing}
+              earlySignals={earlySignals}
+              distractions={appState.distractions}
+              focusSessions={appState.focusSessions}
+              onToggleHabit={handleToggleHabit}
+              onQuickReset={startQuickReset}
+              onBack={() => setCurrentView('dashboard')}
+              onOpenDistractions={() => setCurrentView('distractions')}
+              onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
+              onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Focused Study Sprint', durationMin: 25 })}
+              onActivateMinModeAll={() => {
+                setAppState(prev => ({
+                  ...prev,
+                  habits: prev.habits.map(h => h.todayStatus === null ? { ...h, todayStatus: 'min', currentStreak: h.currentStreak + 1 } : h)
+                }));
+                alert('⚡ All remaining daily goals adjusted to Minimum Mode! Streaks protected.');
+              }}
+            />
+          )}
 
-        {currentView === 'login' && (
-          <LoginView
-            user={user}
-            googleClientId={googleClientId}
-            setGoogleClientId={setGoogleClientId}
-            onGoogleSuccess={handleGoogleSuccess}
-            onContinueAsGuest={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'onboarding')}
-            onBack={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
-            authLoading={authLoading}
-            authError={authError}
-          />
-        )}
+          {currentView === 'goals' && (
+            <GoalsView
+              goals={appState.goals}
+              habits={appState.habits}
+              onBack={() => setCurrentView('dashboard')}
+              onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
+            />
+          )}
 
-        {currentView === 'exercise' && (
-          <ExerciseEngine
-            activity={activeQuickReset}
-            onComplete={handleExerciseComplete}
-            onCancel={() => setCurrentView('dashboard')}
-            soundEnabled={appState.soundEnabled}
-          />
-        )}
-      </main>
+          {currentView === 'weekly-report' && (
+            <WeeklyReportView
+              appState={appState}
+              wellbeing={wellbeing}
+              earlySignals={earlySignals}
+              distractions={appState.distractions}
+              focusSessions={appState.focusSessions}
+              distractionGoalMinutes={appState.distractionGoalMinutes}
+              onBack={() => setCurrentView('dashboard')}
+              onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
+              onOpenDistractions={() => setCurrentView('distractions')}
+            />
+          )}
+
+          {currentView === 'login' && (
+            <LoginView
+              user={user}
+              googleClientId={googleClientId}
+              setGoogleClientId={setGoogleClientId}
+              onGoogleSuccess={handleGoogleSuccess}
+              onContinueAsGuest={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'onboarding')}
+              onBack={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
+              authLoading={authLoading}
+              authError={authError}
+            />
+          )}
+
+          {currentView === 'exercise' && (
+            <ExerciseEngine
+              activity={activeQuickReset}
+              onComplete={handleExerciseComplete}
+              onCancel={() => setCurrentView('dashboard')}
+              soundEnabled={appState.soundEnabled}
+            />
+          )}
+        </main>
+
+        {/* Clean Application Footer */}
+        <FooterNav
+          user={user}
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          onOpenSafety={() => setShowSafetyModal(true)}
+          onOpenPrivacy={() => setShowPrivacyModal(true)}
+          onOpenSettings={() => setCurrentView('profile')}
+        />
+      </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        onOpenMore={() => setCurrentView('profile')}
+      />
 
       {/* Modals & Dialogs */}
       {/* Interactive Live Focus Session Player */}
@@ -2736,229 +2836,1017 @@ function App() {
 // 1. HEADER NAVIGATION
 // ==========================================================================
 
-function HeaderNav({
+// ==========================================================================
+// 1. UNIFIED APPLICATION SHELL NAVIGATION & DEDICATED VIEWS
+// ==========================================================================
+
+// --- DESKTOP FIXED SIDEBAR NAVIGATION ---
+function SidebarNav({
   currentView,
   setCurrentView,
   user,
   onSignOut,
   onGoToLogin,
+  onOpenSettings,
+  onOpenSafety,
+  onOpenPrivacy,
+  onOpenDeEscalator,
+  isShieldModeActive,
+  onToggleShieldMode,
+  earlySignals
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [currentView, user, isShieldModeActive]);
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+    { id: 'stress', label: 'Stress', icon: 'shield-alert', badge: earlySignals?.statusLevel === 'elevated' || earlySignals?.statusLevel === 'demanding' ? 'Alert' : null },
+    { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
+    { id: 'breathing', label: 'Breathing', icon: 'wind' },
+    { id: 'journal', label: 'Journal', icon: 'book-open' },
+    { id: 'goals', label: 'Goals', icon: 'target' },
+    { id: 'weekly-report', label: 'Insights', icon: 'bar-chart-2' },
+    { id: 'profile', label: 'Profile', icon: 'user' }
+  ];
+
+  const toolItems = [
+    { id: 'coach', label: 'AI Coach', icon: 'bot' },
+    { id: 'distractions', label: 'Focus & Radar', icon: 'timer' },
+    { id: 'minigames', label: 'Mindful Games', icon: 'gamepad-2' }
+  ];
+
+  return (
+    <aside className="breathly-sidebar hidden md:flex flex-col justify-between">
+      {/* Brand Header */}
+      <div>
+        <div
+          onClick={() => setCurrentView('dashboard')}
+          className="sidebar-brand flex items-center gap-3 cursor-pointer pb-4 border-b border-[#e8eae6]"
+        >
+          <div className="sidebar-brand-mark">
+            <i data-lucide="leaf" className="w-5 h-5"></i>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-lg tracking-tight text-[#18201d]">
+                Breathly
+              </span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-[#e8f3ed] text-[#1b4332] uppercase tracking-wider">
+                PRO
+              </span>
+            </div>
+            <p className="text-[11px] text-[#55645e] font-medium">Digital Well-Being</p>
+          </div>
+        </div>
+
+        {/* Primary Navigation List */}
+        <div className="pt-4 space-y-1">
+          <div className="sidebar-section-title">Navigation</div>
+          {navItems.map((item) => {
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCurrentView(item.id)}
+                className={`sidebar-nav-item w-full ${isActive ? 'active' : ''}`}
+              >
+                <div className="sidebar-nav-icon">
+                  <i data-lucide={item.icon} className="w-4 h-4"></i>
+                </div>
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#fdf2ee] text-[#c25e40] border border-[#fad5c8]">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Secondary Tools Section */}
+        <div className="pt-4 space-y-1">
+          <div className="sidebar-section-title">Wellbeing Tools</div>
+          {toolItems.map((item) => {
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setCurrentView(item.id)}
+                className={`sidebar-nav-item w-full ${isActive ? 'active' : ''}`}
+              >
+                <div className="sidebar-nav-icon">
+                  <i data-lucide={item.icon} className="w-4 h-4"></i>
+                </div>
+                <span className="flex-1 text-left">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sidebar Footer & Actions */}
+      <div className="space-y-3 pt-3 border-t border-[#e8eae6]">
+        {/* Preemptive Shield Toggle */}
+        <button
+          onClick={onToggleShieldMode}
+          className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
+            isShieldModeActive
+              ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm'
+              : 'bg-[#f7f8f6] text-[#18201d] border-[#e8eae6] hover:bg-[#e8f3ed] hover:border-[#cfe1d7]'
+          }`}
+          title="Toggle Preemptive Burnout Shield Mode (2-Min Micro-Doses)"
+        >
+          <div className="flex items-center gap-2">
+            <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-4 h-4 text-current"></i>
+            <span>Burnout Shield</span>
+          </div>
+          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${isShieldModeActive ? 'bg-white/20' : 'bg-[#e8eae6]'}`}>
+            {isShieldModeActive ? 'ON' : 'OFF'}
+          </span>
+        </button>
+
+        {/* 10-Second Unfreeze CTA */}
+        <button
+          onClick={onOpenDeEscalator}
+          className="w-full py-2 px-3 rounded-xl bg-[#fef7ed] hover:bg-[#fbe2bd] border border-[#fbe2bd] text-[#b8772a] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+          title="10-Second Anti-Paralysis Circuit Breaker"
+        >
+          <i data-lucide="zap" className="w-3.5 h-3.5"></i>
+          <span>10s Circuit Breaker</span>
+        </button>
+
+        {/* User Account / Profile Row */}
+        <div className="pt-2 flex items-center justify-between text-xs">
+          {user ? (
+            <div className="flex items-center gap-2 overflow-hidden flex-1">
+              {user.picture ? (
+                <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full flex-shrink-0" />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#1b4332] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+                  {user.name ? user.name[0].toUpperCase() : 'U'}
+                </div>
+              )}
+              <div className="truncate flex-1">
+                <div className="font-bold text-[#18201d] truncate">{user.name?.split(' ')[0]}</div>
+                <div className="text-[10px] text-[#55645e] truncate">{user.email}</div>
+              </div>
+              <button
+                onClick={onSignOut}
+                className="p-1.5 text-[#55645e] hover:text-[#c25e40] rounded-lg transition-colors flex-shrink-0"
+                title="Sign Out"
+              >
+                <i data-lucide="log-out" className="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onGoToLogin}
+              className="w-full py-2 px-3 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+            >
+              <i data-lucide="log-in" className="w-3.5 h-3.5"></i>
+              <span>Sign In with Google</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// --- TOP RESPONSIVE HEADER BAR ---
+function TopHeaderBar({
+  currentView,
+  setCurrentView,
+  user,
+  onGoToLogin,
   onQuickReset,
   onOpenSafety,
   onOpenSettings,
-  onOpenPrivacy,
   onOpenDeEscalator,
   isShieldModeActive,
   onToggleShieldMode,
   theme,
   setTheme,
   soundEnabled,
-  toggleSound,
-  ambientSound,
-  setAmbientSound
+  toggleSound
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [currentView, user, soundEnabled, ambientSound, isShieldModeActive]);
+  }, [currentView, user, soundEnabled, isShieldModeActive]);
 
-  const themes = [
-    { id: 'porcelain', name: 'White', color: '#4f46e5' },
-    { id: 'sage', name: 'Sage', color: '#059669' },
-    { id: 'azure', name: 'Sky', color: '#0284c7' },
-    { id: 'sunset', name: 'Peach', color: '#ea580c' }
-  ];
+  const viewTitles = {
+    dashboard: 'Daily Wellbeing Overview',
+    stress: 'Stress Protection & Early Signals',
+    habits: 'Habit Consistency & Micro-Doses',
+    breathing: 'Breathing Space & Guided Resets',
+    journal: 'Daily Reflection & Journal',
+    goals: 'Active Well-Being Goals',
+    'weekly-report': 'Insights & Trends',
+    profile: 'Profile & Settings',
+    coach: 'My AI Well-Being Coach',
+    distractions: 'Focus Sessions & Distraction Radar',
+    minigames: 'Mindful Mini-Games Hub',
+    'bubble-rhythm': 'Bubble Rhythm Reset',
+    'zen-garden': 'Zen Pebble Cairn Balance',
+    login: 'Account Authentication',
+    onboarding: 'Personal Routine Setup'
+  };
 
   return (
-    <header className="sticky top-0 z-40 glass-nav px-4 sm:px-6 py-3 transition-all">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
-        {/* Brand Logo & Name */}
-        <div 
-          onClick={() => setCurrentView('dashboard')}
-          className="flex items-center space-x-2.5 cursor-pointer group"
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-            <i data-lucide="sparkles" className="w-5 h-5 text-white"></i>
+    <header className="breathly-top-header flex items-center justify-between gap-4">
+      {/* Mobile Brand / Desktop Title */}
+      <div className="flex items-center gap-3">
+        <div className="md:hidden flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+          <div className="w-8 h-8 rounded-lg bg-[#1b4332] text-white flex items-center justify-center shadow-sm">
+            <i data-lucide="leaf" className="w-4 h-4"></i>
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Breathly
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-widest">
-                WELL-BEING
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 hidden sm:block">Personal Adaptive Habit & Well-Being Intelligence</p>
-          </div>
+          <span className="font-extrabold text-base tracking-tight text-[#18201d]">Breathly</span>
         </div>
 
-        {/* Action Center */}
-        <div className="flex items-center space-x-1 sm:space-x-2">
-          {/* 10-Second Anti-Paralysis Reset CTA */}
+        <div className="hidden md:block">
+          <h2 className="text-base font-bold text-[#18201d]">
+            {viewTitles[currentView] || 'Digital Well-Being'}
+          </h2>
+          <p className="text-[11px] text-[#55645e]">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </p>
+        </div>
+      </div>
+
+      {/* Top Action Controls */}
+      <div className="flex items-center gap-2">
+        {/* Instant 60s Breathing Reset Action */}
+        <button
+          onClick={onQuickReset}
+          className="btn-primary py-1.5 px-3 text-xs"
+          title="Start instant 60s calming breathing reset"
+        >
+          <i data-lucide="wind" className="w-3.5 h-3.5"></i>
+          <span className="hidden sm:inline">60s Reset</span>
+        </button>
+
+        {/* Ambient Soundscape Audio Toggle */}
+        <button
+          onClick={toggleSound}
+          className={`p-2 rounded-xl border text-xs transition-colors ${
+            soundEnabled
+              ? 'bg-[#e8f3ed] border-[#cfe1d7] text-[#1b4332]'
+              : 'bg-white border-[#e8eae6] text-[#82928b] hover:text-[#18201d]'
+          }`}
+          title={soundEnabled ? 'Ambient Soundscape Active' : 'Soundscape Muted'}
+        >
+          <i data-lucide={soundEnabled ? 'volume-2' : 'volume-x'} className="w-4 h-4"></i>
+        </button>
+
+        {/* Profile / Settings Trigger on Desktop */}
+        <button
+          onClick={onOpenSettings}
+          className="hidden sm:flex p-2 rounded-xl bg-white border border-[#e8eae6] text-[#55645e] hover:text-[#18201d] transition-colors"
+          title="Settings & Routine Setup"
+        >
+          <i data-lucide="settings" className="w-4 h-4"></i>
+        </button>
+
+        {/* User Avatar on Mobile */}
+        {!user ? (
           <button
-            onClick={onOpenDeEscalator}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition-all shadow-sm hover:scale-105"
-            title="10-Second Anti-Paralysis Circuit Breaker"
+            onClick={onGoToLogin}
+            className="md:hidden py-1.5 px-3 rounded-xl bg-[#1b4332] text-white text-xs font-bold"
           >
-            <i data-lucide="zap" className="w-3.5 h-3.5 text-amber-600"></i>
-            <span className="hidden sm:inline">⚡ 10s Unfreeze</span>
+            Sign In
           </button>
-
-          {/* Burnout Shield Mode Toggle */}
-          <button
-            onClick={onToggleShieldMode}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
-              isShieldModeActive 
-                ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-300' 
-                : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
-            }`}
-            title="Toggle Preemptive Burnout Shield Mode (2-Min Micro-Doses)"
-          >
-            <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className={`w-3.5 h-3.5 ${isShieldModeActive ? 'text-white' : 'text-emerald-600'}`}></i>
-            <span className="hidden md:inline">{isShieldModeActive ? '🛡️ Shield On' : '🛡️ Shield'}</span>
-          </button>
-
-          {/* Quick Reset 60s CTA */}
-          <button
-            onClick={onQuickReset}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 hover:border-teal-400 text-teal-700 hover:text-teal-900 text-xs font-semibold transition-all shadow-sm"
-            title="Start instant tailored breathing reset"
-          >
-            <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
-            <span className="hidden sm:inline">⚡ Quick Reset</span>
-          </button>
-
-          {/* Distraction & Focus Hub CTA */}
-          <button
-            onClick={() => setCurrentView('distractions')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-              currentView === 'distractions'
-                ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/25'
-                : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700 hover:text-slate-900'
-            }`}
-            title="Track distractions and manage focus sessions"
-          >
-            <i data-lucide="target" className={`w-3.5 h-3.5 ${currentView === 'distractions' ? 'text-white' : 'text-amber-600'}`}></i>
-            <span className="hidden sm:inline">Focus & Distractions</span>
-          </button>
-
-          {/* Mini Games CTA */}
-          <button
-            onClick={() => setCurrentView('minigames')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-              currentView === 'minigames' || currentView === 'bubble-rhythm'
-                ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/25'
-                : 'bg-white border-slate-200 hover:border-purple-300 text-slate-700 hover:text-slate-900'
-            }`}
-            title="Mindful mini-games and relaxation breaks"
-          >
-            <i data-lucide="gamepad-2" className={`w-3.5 h-3.5 ${currentView === 'minigames' || currentView === 'bubble-rhythm' ? 'text-white' : 'text-purple-600'}`}></i>
-            <span className="hidden sm:inline">Mini Games</span>
-          </button>
-
-          {/* AI Coach Button */}
-          <button
-            onClick={() => setCurrentView('coach')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${
-              currentView === 'coach'
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/25'
-                : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-slate-900'
-            }`}
-          >
-            <i data-lucide="bot" className="w-3.5 h-3.5 text-indigo-600"></i>
-            <span className="hidden sm:inline">My Coach</span>
-          </button>
-
-          {/* Theme Work Mode Selector */}
-          <div className="hidden sm:flex items-center bg-slate-100 rounded-full p-1 border border-slate-200">
-            {Object.values(THEME_WORK_MODES).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
-                  theme === t.id 
-                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200 scale-105' 
-                    : 'text-slate-500 hover:text-slate-900 opacity-70 hover:opacity-100'
-                }`}
-                title={`${t.modeTitle}: ${t.tagline}`}
-              >
-                <span>{t.icon}</span>
-                <span className="hidden md:inline">{t.name.split(' ')[0]}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Ambient Sound Toggle */}
-          <button
-            onClick={toggleSound}
-            className={`p-2 rounded-xl border transition-colors ${
-              soundEnabled ? 'text-teal-700 bg-teal-50 border-teal-200' : 'text-slate-400 border-transparent hover:text-slate-700'
-            }`}
-            title={soundEnabled ? 'Sound Enabled' : 'Sound Muted'}
-          >
-            <i data-lucide={soundEnabled ? 'volume-2' : 'volume-x'} className="w-4 h-4"></i>
-          </button>
-
-          {/* Privacy Center */}
-          <button
-            onClick={onOpenPrivacy}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-            title="Privacy Center"
-          >
-            <i data-lucide="shield" className="w-4 h-4"></i>
-          </button>
-
-          {/* Settings */}
+        ) : (
           <button
             onClick={onOpenSettings}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-            title="Settings"
+            className="md:hidden w-8 h-8 rounded-full bg-[#1b4332] text-white text-xs font-bold flex items-center justify-center"
           >
-            <i data-lucide="settings" className="w-4 h-4"></i>
+            {user.name ? user.name[0].toUpperCase() : 'U'}
           </button>
-
-          {/* User Auth Avatar & Quick Sign Out / Login CTA */}
-          {user ? (
-            <div className="flex items-center gap-2 pl-1">
-              <button 
-                onClick={onOpenSettings}
-                className="flex items-center space-x-2 pl-2 pr-2.5 py-1 rounded-full bg-white border border-slate-200 hover:border-indigo-300 transition-colors shadow-sm"
-                title={`Signed in as ${user.email}. Click for settings.`}
-              >
-                {user.picture ? (
-                  <img src={user.picture} alt={user.name} className="w-5 h-5 rounded-full" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
-                    {user.name ? user.name[0].toUpperCase() : 'U'}
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-slate-800 hidden md:inline">
-                  {user.name?.split(' ')[0]}
-                </span>
-              </button>
-
-              <button
-                onClick={onSignOut}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-all shadow-sm"
-                title="Sign out of your account"
-              >
-                <i data-lucide="log-out" className="w-3.5 h-3.5 text-rose-600"></i>
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onGoToLogin}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 hover:scale-105"
-            >
-              <i data-lucide="log-in" className="w-3.5 h-3.5"></i>
-              <span>Sign In</span>
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </header>
   );
 }
+
+// --- MOBILE BOTTOM NAVIGATION BAR ---
+function MobileBottomNav({ currentView, setCurrentView, onOpenMore }) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [currentView]);
+
+  const tabs = [
+    { id: 'dashboard', label: 'Today', icon: 'layout-dashboard' },
+    { id: 'stress', label: 'Stress', icon: 'shield-alert' },
+    { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
+    { id: 'breathing', label: 'Breathing', icon: 'wind' },
+    { id: 'profile', label: 'More', icon: 'menu' }
+  ];
+
+  return (
+    <nav className="mobile-bottom-bar md:hidden">
+      {tabs.map((tab) => {
+        const isActive = currentView === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => setCurrentView(tab.id)}
+            className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
+          >
+            <div className="mobile-icon-wrap">
+              <i data-lucide={tab.icon} className="w-5 h-5"></i>
+            </div>
+            <span>{tab.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// --- DEDICATED STRESS PROTECTION HUB VIEW ---
+function StressHubView({
+  earlySignals,
+  frictionForecast,
+  upcomingPressures,
+  isShieldModeActive,
+  onToggleShieldMode,
+  onOpenDeEscalator,
+  onQuickReset,
+  onAddPressure,
+  onBack
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [earlySignals, frictionForecast, upcomingPressures, isShieldModeActive]);
+
+  const levelColorMap = {
+    calm: { text: 'text-[#2d6a4f]', bg: 'bg-[#eef6f2]', border: 'border-[#d1e7dc]', label: 'Balanced & Low Stress' },
+    steady: { text: 'text-[#2d6a4f]', bg: 'bg-[#eef6f2]', border: 'border-[#d1e7dc]', label: 'Steady State' },
+    elevated: { text: 'text-[#b8772a]', bg: 'bg-[#fef7ed]', border: 'border-[#fbe2bd]', label: 'Elevated Cognitive Friction' },
+    demanding: { text: 'text-[#c25e40]', bg: 'bg-[#fdf2ee]', border: 'border-[#fad5c8]', label: 'High Stress Load Detected' }
+  };
+
+  const status = levelColorMap[earlySignals?.statusLevel] || levelColorMap.calm;
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Stress Protection</h1>
+          <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+            Early detection, predictive friction forecasting, and proactive down-regulation tools.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={onOpenDeEscalator} className="btn-secondary text-xs">
+            <i data-lucide="zap" className="w-3.5 h-3.5 text-[#b8772a]"></i>
+            <span>10s Circuit Breaker</span>
+          </button>
+          <button onClick={() => onQuickReset(ACTIVITIES['breathing-426'])} className="btn-primary text-xs">
+            <i data-lucide="wind" className="w-3.5 h-3.5"></i>
+            <span>Start Calming Breath</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Status & Forecast Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Current State Card */}
+        <div className="breathly-card md:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-3.5 h-3.5 rounded-full ${status.bg} border-2 ${status.border} flex items-center justify-center`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${earlySignals?.statusLevel === 'demanding' ? 'bg-[#c25e40]' : 'bg-[#2d6a4f]'}`}></div>
+              </div>
+              <h3 className="text-sm font-bold text-[#18201d]">Current Predicted Stress State</h3>
+            </div>
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${status.bg} ${status.text} border ${status.border}`}>
+              {status.label}
+            </span>
+          </div>
+
+          <p className="text-xs sm:text-[13px] text-[#55645e] leading-relaxed">
+            {earlySignals?.gentleNudge || 'Your baseline indicators show steady physiological and cognitive balance across your scheduled routines.'}
+          </p>
+
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#18201d]">Friction & Fatigue Pressure Index:</span>
+              <span className="font-extrabold text-[#18201d]">{frictionForecast?.score || 18}%</span>
+            </div>
+            <div className="friction-meter-track">
+              <div
+                className={`friction-meter-fill ${frictionForecast?.level || 'low'}`}
+                style={{ width: `${frictionForecast?.score || 18}%` }}
+              ></div>
+            </div>
+            <p className="text-[11px] text-[#82928b]">
+              {frictionForecast?.description || 'Low cognitive drag. Pacing is optimal for daytime productivity.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Burnout Shield Action Card */}
+        <div className={`breathly-card flex flex-col justify-between space-y-3 ${isShieldModeActive ? 'shield-active-aura' : ''}`}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#1b4332]">
+              <i data-lucide="shield" className="w-4 h-4"></i>
+              <span>Burnout Shield</span>
+            </div>
+            <h4 className="text-base font-bold text-[#18201d]">
+              {isShieldModeActive ? 'Shield Mode Active' : 'Preemptive Habit Shield'}
+            </h4>
+            <p className="text-xs text-[#55645e] leading-relaxed">
+              When activated, habits automatically scale down to 2-minute Minimum Mode micro-doses. Your streaks remain protected without fatigue.
+            </p>
+          </div>
+
+          <button
+            onClick={onToggleShieldMode}
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              isShieldModeActive
+                ? 'bg-[#1b4332] text-white shadow-sm'
+                : 'bg-[#18201d] text-white hover:bg-black'
+            }`}
+          >
+            <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-4 h-4"></i>
+            <span>{isShieldModeActive ? 'Deactivate Shield' : 'Activate 2-Min Shield'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Upcoming Pressures & Stress Planning */}
+      <div className="breathly-card space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i data-lucide="calendar" className="w-4 h-4 text-[#1b4332]"></i>
+            <h3 className="text-sm font-bold text-[#18201d]">Upcoming Pressure Events & Deadlines</h3>
+          </div>
+          <button onClick={onAddPressure} className="btn-secondary py-1 px-2.5 text-xs">
+            <i data-lucide="plus" className="w-3.5 h-3.5"></i>
+            <span>Add Event</span>
+          </button>
+        </div>
+
+        {(!upcomingPressures || upcomingPressures.length === 0) ? (
+          <div className="empty-state-box py-8">
+            <div className="empty-state-icon">
+              <i data-lucide="calendar-check" className="w-6 h-6"></i>
+            </div>
+            <div className="empty-state-title">No upcoming pressure events</div>
+            <p className="empty-state-desc">
+              Log upcoming exams, heavy work deadlines, or travel so Breathly can adjust habit targets in advance.
+            </p>
+            <button onClick={onAddPressure} className="btn-primary text-xs mt-2">
+              <span>Plan an Event</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {upcomingPressures.map((ev) => (
+              <div key={ev.id} className="p-3.5 rounded-xl border border-[#e8eae6] bg-[#f7f8f6] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[#18201d]">{ev.title}</span>
+                  <span className="text-[10px] font-bold text-[#c25e40] bg-[#fdf2ee] px-1.5 py-0.5 rounded border border-[#fad5c8]">
+                    {ev.intensity || 'High'} Pressure
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#55645e]">{ev.startDate}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- DEDICATED HABITS HUB VIEW ---
+function HabitsHubView({
+  habits = [],
+  goals = [],
+  onToggleHabit,
+  onAddHabit,
+  onEditHabit,
+  onDeleteHabit,
+  onOpenFailureModal,
+  isShieldModeActive,
+  onToggleShieldMode
+}) {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [habits, selectedCategory, isShieldModeActive]);
+
+  const categories = ['all', 'Growth', 'Health', 'Mindfulness', 'Focus'];
+  const filteredHabits = selectedCategory === 'all'
+    ? habits
+    : habits.filter(h => (h.category || '').toLowerCase() === selectedCategory.toLowerCase());
+
+  const completedCount = habits.filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length;
+  const totalCount = habits.length;
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Habits & Consistency</h1>
+          <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+            Adaptive micro-dosing ensures you make daily progress without friction or burnout.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={onAddHabit} className="btn-primary text-xs">
+            <i data-lucide="plus" className="w-3.5 h-3.5"></i>
+            <span>Add Habit</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Metric Cards Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="metric-card-clean">
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Completed Today</div>
+          <div className="text-2xl font-extrabold text-[#18201d]">{completedCount} / {totalCount}</div>
+          <div className="text-[11px] text-[#2d6a4f] font-semibold">{totalCount ? Math.round((completedCount / totalCount) * 100) : 0}% completion</div>
+        </div>
+
+        <div className="metric-card-clean">
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Active Streaks</div>
+          <div className="text-2xl font-extrabold text-[#d94e34]">
+            {habits.reduce((acc, h) => acc + (h.currentStreak || 0), 0)} Days
+          </div>
+          <div className="text-[11px] text-[#55645e]">Across all daily rituals</div>
+        </div>
+
+        <div className="metric-card-clean">
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Minimum Mode</div>
+          <div className="text-2xl font-extrabold text-[#b8772a]">2-Min Doses</div>
+          <div className="text-[11px] text-[#55645e]">Friction protection ready</div>
+        </div>
+
+        <div className="metric-card-clean">
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Burnout Shield</div>
+          <div className={`text-2xl font-extrabold ${isShieldModeActive ? 'text-[#1b4332]' : 'text-[#82928b]'}`}>
+            {isShieldModeActive ? 'ACTIVE' : 'READY'}
+          </div>
+          <div className="text-[11px] text-[#55645e]">{isShieldModeActive ? 'Targets scaled down' : 'Click to activate'}</div>
+        </div>
+      </div>
+
+      {/* Category Filter Chips */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all ${
+              selectedCategory === cat
+                ? 'bg-[#1b4332] text-white shadow-sm'
+                : 'bg-white border border-[#e8eae6] text-[#55645e] hover:text-[#18201d]'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Habit List */}
+      {filteredHabits.length === 0 ? (
+        <div className="empty-state-box">
+          <div className="empty-state-icon">
+            <i data-lucide="sparkles" className="w-6 h-6"></i>
+          </div>
+          <div className="empty-state-title">No habits in this category yet</div>
+          <p className="empty-state-desc">
+            Build steady momentum with a simple 2-minute minimum mode habit.
+          </p>
+          <button onClick={onAddHabit} className="btn-primary text-xs mt-1">
+            <span>Add Your First Habit</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredHabits.map((habit) => {
+            const isFull = habit.todayStatus === 'full';
+            const isMin = habit.todayStatus === 'min';
+
+            return (
+              <div
+                key={habit.id}
+                className={`habit-card ${isFull ? 'completed-full' : isMin ? 'completed-min' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 flex-1">
+                    <button
+                      onClick={() => onToggleHabit(habit.id, 'full')}
+                      className={`habit-checkbox ${isFull ? 'checked-full' : isMin ? 'checked-min' : ''}`}
+                      title={isFull || isMin ? 'Completed — click to review' : 'Click to start timer'}
+                    >
+                      {(isFull || isMin) ? (
+                        <i data-lucide="check" className="w-3.5 h-3.5 text-white"></i>
+                      ) : (
+                        <i data-lucide="play" className="w-3 h-3 text-[#82928b]"></i>
+                      )}
+                    </button>
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{habit.icon || '🌿'}</span>
+                        <h4 className={`text-sm font-bold text-[#18201d] ${isFull || isMin ? 'line-through opacity-70' : ''}`}>
+                          {habit.title}
+                        </h4>
+                      </div>
+
+                      <p className="text-xs text-[#55645e] mt-0.5">
+                        Target: {habit.targetVal} {habit.targetUnit} • <span className="capitalize">{habit.preferredTime}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="streak-pill">
+                      <span>🔥</span>
+                      <span>{habit.currentStreak || 0}d</span>
+                    </span>
+
+                    <button
+                      onClick={() => onEditHabit(habit)}
+                      className="p-1 text-[#82928b] hover:text-[#18201d] transition-colors"
+                      title="Edit Habit"
+                    >
+                      <i data-lucide="more-horizontal" className="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Min-Mode Trigger & Recovery Helper */}
+                <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-[#f0f2ef] text-xs">
+                  <button
+                    onClick={() => onToggleHabit(habit.id, 'min')}
+                    className={`min-mode-pill ${isMin ? 'bg-[#fbe2bd] text-[#b8772a] font-extrabold' : ''}`}
+                    title="Start 2-min Minimum Mode micro-dose"
+                  >
+                    <span>⚡ Min: {habit.minModeVal} {habit.minModeUnit}</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenFailureModal(habit)}
+                    className="text-[11px] text-[#82928b] hover:text-[#c25e40] flex items-center gap-1"
+                  >
+                    <i data-lucide="help-circle" className="w-3 h-3"></i>
+                    <span>What got in the way?</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- DEDICATED BREATHING SPACE HUB VIEW ---
+function BreathingHubView({ onQuickReset, soundEnabled, toggleSound }) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, []);
+
+  const cadences = [
+    {
+      id: 'breathing-426',
+      title: '4-2-6 Parasympathetic Flow',
+      desc: 'Deep diaphragmatic cadence that rapidly lowers elevated heart rate and signals safety to the amygdala.',
+      timing: '4s Inhale • 2s Hold • 6s Exhale',
+      duration: '2 Mins',
+      tag: 'Stress Down-Regulation',
+      icon: 'wind',
+      activity: ACTIVITIES['breathing-426']
+    },
+    {
+      id: 'breathing-box',
+      title: 'Box Breathing (4-4-4-4)',
+      desc: 'Used by high-performance athletes to stabilize autonomic balance, clear mental chatter, and restore executive focus.',
+      timing: '4s Inhale • 4s Hold • 4s Exhale • 4s Hold',
+      duration: '3 Mins',
+      tag: 'Clarity & Cognitive Focus',
+      icon: 'square',
+      activity: ACTIVITIES['breathing-box']
+    },
+    {
+      id: 'breathing-478',
+      title: '4-7-8 Vagal Sleep Reset',
+      desc: 'Stimulates the vagus nerve and down-regulates cortisol. Ideal for nighttime wind-down or acute sensory overload.',
+      timing: '4s Inhale • 7s Hold • 8s Exhale',
+      duration: '3 Mins',
+      tag: 'Sleep & Evening Wind-Down',
+      icon: 'moon',
+      activity: ACTIVITIES['breathing-478']
+    }
+  ];
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Breathing Space</h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+          Clinically studied respiratory cadences to regulate the autonomic nervous system in under 2 minutes.
+        </p>
+      </div>
+
+      {/* Cadence Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {cadences.map((c) => (
+          <div key={c.id} className="breathly-card flex flex-col justify-between space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-xl bg-[#e8f3ed] text-[#1b4332]">
+                  <i data-lucide={c.icon} className="w-5 h-5"></i>
+                </span>
+                <span className="text-[10px] font-bold text-[#1b4332] bg-[#e8f3ed] px-2 py-0.5 rounded-full">
+                  {c.duration}
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-[#18201d]">{c.title}</h3>
+              <p className="text-xs text-[#55645e] leading-relaxed">{c.desc}</p>
+              <div className="p-2.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] text-[11px] font-semibold text-[#18201d]">
+                {c.timing}
+              </div>
+            </div>
+
+            <button
+              onClick={() => onQuickReset(c.activity)}
+              className="btn-primary w-full text-xs"
+            >
+              <i data-lucide="play" className="w-3.5 h-3.5"></i>
+              <span>Begin Guided Session</span>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Optical Bio-Feedback Visualizer Preview */}
+      <div className="breathly-card space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i data-lucide="activity" className="w-4 h-4 text-[#c25e40]"></i>
+            <h3 className="text-sm font-bold text-[#18201d]">Heart-Rate Coherence Waveform</h3>
+          </div>
+          <span className="text-xs font-bold text-[#2d6a4f] bg-[#eef6f2] px-2 py-0.5 rounded-full border border-[#d1e7dc]">
+            Coherent Cadence Active
+          </span>
+        </div>
+        <p className="text-xs text-[#55645e]">
+          Longer exhalations slow your heart rate via respiratory sinus arrhythmia (RSA), promoting physiological calm.
+        </p>
+        <div className="bio-canvas-container p-4 flex items-center justify-center">
+          <div className="text-center text-xs text-white/70 space-y-1">
+            <div className="text-lg font-bold text-white tracking-widest animate-pulse">〰️ 〰️ 〰️</div>
+            <div>Harmonic vagal tone active during guided breathing sessions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- DEDICATED JOURNAL & CHECK-IN HUB VIEW ---
+function JournalHubView({ profile, upcomingPressures, checkInStatus, onSaveDailyCheckIn, onOpenMiniGames }) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [checkInStatus]);
+
+  const history = checkInStatus?.history || [];
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Daily Journal & Reflections</h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+          Record your daily context, stress signals, and mood patterns to help Breathly personalize your pacing.
+        </p>
+      </div>
+
+      {/* Daily Check-in Form Card */}
+      <DailyCheckInCard
+        profile={profile}
+        upcomingPressures={upcomingPressures}
+        checkInStatus={checkInStatus}
+        onSave={onSaveDailyCheckIn}
+        onOpenMiniGames={onOpenMiniGames}
+      />
+
+      {/* Reflection History Timeline */}
+      <div className="breathly-card space-y-4">
+        <h3 className="text-sm font-bold text-[#18201d] flex items-center gap-2">
+          <i data-lucide="history" className="w-4 h-4 text-[#1b4332]"></i>
+          <span>Check-in Log History</span>
+        </h3>
+
+        {history.length === 0 ? (
+          <div className="empty-state-box py-8">
+            <div className="empty-state-icon">
+              <i data-lucide="book-open" className="w-6 h-6"></i>
+            </div>
+            <div className="empty-state-title">No check-ins yet</div>
+            <p className="empty-state-desc">
+              Complete your first check-in above to start understanding your daily wellbeing trends.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {history.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-xl border border-[#e8eae6] bg-[#f7f8f6] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#18201d]">{item.date || 'Recent Entry'}</span>
+                  <span className="text-[10px] font-bold text-[#2d6a4f] bg-[#eef6f2] px-2 py-0.5 rounded-full border border-[#d1e7dc] capitalize">
+                    {item.overallFeeling || 'Balanced'}
+                  </span>
+                </div>
+                <div className="text-xs text-[#55645e]">
+                  Stress Level: <strong>{item.stressRating}/10</strong> • Sleep: <span className="capitalize">{item.sleepQuality || 'Good'}</span>
+                </div>
+                {item.notes && (
+                  <p className="text-xs text-[#18201d] italic bg-white p-2 rounded-lg border border-[#e8eae6]">
+                    "{item.notes}"
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- DEDICATED PROFILE & SETTINGS HUB VIEW ---
+function ProfileHubView({
+  user,
+  profile,
+  theme,
+  setTheme,
+  soundEnabled,
+  toggleSound,
+  ambientSound,
+  setAmbientSound,
+  onRedoOnboarding,
+  onClearData,
+  onSignOut,
+  onSignIn,
+  onOpenSafety,
+  onOpenPrivacy
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [user, theme, ambientSound]);
+
+  return (
+    <div className="space-y-6 animate-fade-in pb-12 max-w-4xl">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Profile & Settings</h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+          Manage your account session, personalize daily routine baselines, and configure audio modes.
+        </p>
+      </div>
+
+      {/* Account Session Card */}
+      <div className="breathly-card space-y-4">
+        <h3 className="text-sm font-bold text-[#18201d]">Account & Authentication</h3>
+        {user ? (
+          <div className="p-4 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {user.picture ? (
+                <img src={user.picture} alt={user.name} className="w-10 h-10 rounded-full" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[#1b4332] text-white font-bold text-sm flex items-center justify-center">
+                  {user.name ? user.name[0].toUpperCase() : 'U'}
+                </div>
+              )}
+              <div>
+                <div className="font-bold text-sm text-[#18201d]">{user.name}</div>
+                <div className="text-xs text-[#55645e]">{user.email}</div>
+              </div>
+            </div>
+
+            <button onClick={onSignOut} className="btn-secondary text-xs text-[#c25e40]">
+              <i data-lucide="log-out" className="w-3.5 h-3.5"></i>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-sm text-[#18201d]">Guest Session</div>
+              <div className="text-xs text-[#55645e]">Sign in with Google to sync your habits across devices.</div>
+            </div>
+
+            <button onClick={onSignIn} className="btn-primary text-xs">
+              <i data-lucide="log-in" className="w-3.5 h-3.5"></i>
+              <span>Sign In with Google</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Work & Well-Being Modes */}
+      <div className="breathly-card space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-[#18201d]">Active Focus & Well-Being Mode</h3>
+          <p className="text-xs text-[#55645e]">Select a mode that matches your current cognitive demands.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Object.values(THEME_WORK_MODES).map((m) => {
+            const isSelected = theme === m.id;
+            return (
+              <div
+                key={m.id}
+                onClick={() => setTheme(m.id)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-[#e8f3ed] border-[#1b4332] shadow-sm'
+                    : 'bg-white border-[#e8eae6] hover:border-[#cfe1d7]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{m.icon}</span>
+                  <div>
+                    <div className="font-bold text-xs text-[#18201d]">{m.name}</div>
+                    <div className="text-[11px] text-[#55645e]">{m.modeTitle}</div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#55645e] mt-2 leading-relaxed">{m.tagline}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Ambient Soundscapes */}
+      <div className="breathly-card space-y-3">
+        <h3 className="text-sm font-bold text-[#18201d]">Background Ambient Soundscape</h3>
+        <div className="grid grid-cols-3 gap-2.5">
+          {['none', 'rain', 'waves'].map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setAmbientSound(s)}
+              className={`py-2 px-3 rounded-xl border text-center capitalize text-xs transition-all ${
+                ambientSound === s
+                  ? 'bg-[#1b4332] border-[#1b4332] text-white font-bold shadow-sm'
+                  : 'bg-white border-[#e8eae6] text-[#18201d] hover:bg-[#f7f8f6]'
+              }`}
+            >
+              {s === 'none' ? 'Mute' : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Re-personalize Onboarding Baseline */}
+      <div className="breathly-card space-y-3">
+        <h3 className="text-sm font-bold text-[#18201d]">Baseline Lifestyle Calibration</h3>
+        <p className="text-xs text-[#55645e]">
+          Retake the 7-question lifestyle onboarding to adjust your routine baseline, stress causes, and work patterns.
+        </p>
+        <button onClick={onRedoOnboarding} className="btn-secondary text-xs">
+          <span>✨ Re-Personalize My Baseline</span>
+        </button>
+      </div>
+
+      {/* Crisis Safety & Privacy */}
+      <div className="breathly-card space-y-3">
+        <h3 className="text-sm font-bold text-[#18201d]">Safety & Privacy</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={onOpenSafety} className="btn-secondary text-xs">
+            <i data-lucide="life-buoy" className="w-3.5 h-3.5"></i>
+            <span>Crisis Safety Resources</span>
+          </button>
+          <button onClick={onOpenPrivacy} className="btn-secondary text-xs">
+            <i data-lucide="shield" className="w-3.5 h-3.5"></i>
+            <span>Privacy Center</span>
+          </button>
+          <button onClick={onClearData} className="btn-secondary text-xs text-[#c25e40]">
+            <i data-lucide="trash-2" className="w-3.5 h-3.5"></i>
+            <span>Reset Local Logs</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ==========================================================================
 // 2. ONBOARDING WIZARD (STRICTLY 7 CAREFULLY SELECTED QUESTIONS)
@@ -4377,14 +5265,14 @@ function InterventionModal({
 function DashboardView({
   user,
   profile,
-  habits,
-  goals,
+  habits = [],
+  goals = [],
   theme,
   setTheme,
   wellbeing,
   earlySignals,
-  insights,
-  upcomingPressures,
+  insights = [],
+  upcomingPressures = [],
   checkInStatus,
   distractions = [],
   focusSessions = [],
@@ -4421,353 +5309,457 @@ function DashboardView({
 
   const completedCount = habits.filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length;
   const totalHabits = habits.length;
-  const activeModeConfig = THEME_WORK_MODES[theme] || THEME_WORK_MODES.porcelain;
   const recentGameSessions = gameSessions || [];
 
+  // Determine greeting based on local time
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const userName = user?.name ? user.name.split(' ')[0] : 'there';
+
+  // Stress State Info
+  const stressStatusTitle = earlySignals?.statusTitle || 'Balanced & Calm';
+  const stressStatusLevel = earlySignals?.statusLevel || 'calm';
+  const isElevatedStress = isHighStressState || stressStatusLevel === 'elevated' || stressStatusLevel === 'demanding';
+
+  // Today's Check-in Summary
+  const hasCheckedIn = checkInStatus?.hasCheckedInToday;
+  const todayEntry = checkInStatus?.todayCheckIn;
+
+  // Streak calculation
+  const totalStreakDays = habits.reduce((acc, h) => acc + (h.currentStreak || 0), 0);
+
+  // Focus Minutes
+  const totalFocusMinutes = focusSessions.reduce((acc, s) => acc + (Number(s.durationMin) || 25), 0);
+
+  // 6 Recommended Activities
+  const recommendedActivities = [
+    {
+      id: 'rec-breathing',
+      title: 'Guided Breathing Reset',
+      desc: '4-2-6 Parasympathetic cadence to down-regulate nervous system tension.',
+      duration: '2 Mins',
+      tag: 'Mindfulness',
+      icon: 'wind',
+      iconBg: 'bg-[#e8f3ed]',
+      iconColor: 'text-[#1b4332]',
+      actionLabel: 'Start Reset',
+      action: () => onQuickReset(ACTIVITIES['breathing-426'])
+    },
+    {
+      id: 'rec-walk',
+      title: 'Mindful Outdoor Walk',
+      desc: '15 minutes of light movement and natural daylight to clear cognitive fatigue.',
+      duration: '15 Mins',
+      tag: 'Movement',
+      icon: 'footprints',
+      iconBg: 'bg-[#eef6f2]',
+      iconColor: 'text-[#2d6a4f]',
+      actionLabel: 'Log Walk',
+      action: () => {
+        if (onStartIntervention) {
+          onStartIntervention('walk', 'Mindful Outdoor Walk', { defaultDurationMin: 15 });
+        } else {
+          alert('🌿 Mindful Walk: Take 15 minutes of fresh air and light movement!');
+        }
+      }
+    },
+    {
+      id: 'rec-stretch',
+      title: 'Body Tension Release',
+      desc: 'Gentle neck, shoulder, and spinal decompression stretches.',
+      duration: '5 Mins',
+      tag: 'Recovery',
+      icon: 'activity',
+      iconBg: 'bg-[#fef7ed]',
+      iconColor: 'text-[#b8772a]',
+      actionLabel: 'Begin Stretch',
+      action: () => {
+        if (onStartIntervention) {
+          onStartIntervention('workout', 'Body Tension Release', { defaultDurationMin: 5 });
+        } else {
+          alert('🧘‍♂️ Take 5 minutes to roll your shoulders, stretch your spine, and release physical tension.');
+        }
+      }
+    },
+    {
+      id: 'rec-social',
+      title: 'Connect with Someone',
+      desc: 'Send a quick text or call a friend or family member to ground your perspective.',
+      duration: '10 Mins',
+      tag: 'Social',
+      icon: 'message-circle-heart',
+      iconBg: 'bg-[#eff7f8]',
+      iconColor: 'text-[#2a6b74]',
+      actionLabel: 'Open Prompt',
+      action: () => {
+        if (onStartIntervention) {
+          onStartIntervention('social_connection', 'Connect with Someone You Trust', { defaultDurationMin: 10 });
+        } else {
+          alert('💬 Take 10 minutes to reach out to a trusted friend or loved one today.');
+        }
+      }
+    },
+    {
+      id: 'rec-relaxation',
+      title: '5-4-3-2-1 Sensory Reset',
+      desc: 'Quick somatic grounding technique to break mental chatter and overthinking loops.',
+      duration: '3 Mins',
+      tag: 'Grounding',
+      icon: 'eye',
+      iconBg: 'bg-[#fdf2ee]',
+      iconColor: 'text-[#c25e40]',
+      actionLabel: 'Start Grounding',
+      action: () => onOpenDeEscalator()
+    },
+    {
+      id: 'rec-game',
+      title: 'Mindful Mini-Game',
+      desc: 'Tactile Bubble Rhythm or Zen Cairn Balance to reset working memory.',
+      duration: '2 Mins',
+      tag: 'Play Reset',
+      icon: 'gamepad-2',
+      iconBg: 'bg-[#f5f3ff]',
+      iconColor: 'text-[#7c3aed]',
+      actionLabel: 'Play 2m',
+      action: () => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')
+    }
+  ];
+
   return (
-    <div className={`space-y-6 pb-12 animate-fade-in ${isShieldModeActive ? 'shield-active-aura rounded-3xl p-4 sm:p-6' : ''}`}>
-      {/* Top Welcome & Wellbeing Bar */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm bg-white relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
-                {user ? `, ${user.name?.split(' ')[0]}` : ''} 👋
-              </h1>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              🎯 {totalHabits - completedCount} habits remaining today • Consistency: {totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0}%
-              {isShieldModeActive && <span className="ml-2 font-bold text-emerald-600">🛡️ Shield Mode Active (2-Min Micro-Doses)</span>}
-            </p>
-          </div>
-
-          {/* Wellbeing Status Badge */}
-          <div className="flex items-center gap-3">
-            <div className={`px-3.5 py-2 rounded-2xl border flex items-center gap-2.5 ${earlySignals.badgeClass}`}>
-              <div className="w-2.5 h-2.5 rounded-full bg-current animate-pulse"></div>
-              <div>
-                <div className="text-[10px] uppercase font-bold tracking-wider opacity-80">Well-Being Index</div>
-                <div className="text-xs font-extrabold">{earlySignals.statusTitle}</div>
-              </div>
-            </div>
-
-            <button
-              onClick={onOpenCoach}
-              className="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition-all"
-            >
-              <i data-lucide="bot" className="w-4 h-4"></i>
-              <span>Ask Coach</span>
-            </button>
-          </div>
+    <div className="space-y-7 pb-12 animate-fade-in">
+      {/* 1. TOP GREETING HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#e8eae6]">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">
+            {timeGreeting}, {userName}
+          </h1>
+          <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
+            Here’s how you’re doing today.
+          </p>
         </div>
 
-        {/* Early-Pressure Multi-Signal Proactive Alert */}
-        {earlySignals.statusLevel !== 'calm' && (
-          <div className={`early-signal-banner ${earlySignals.statusLevel} mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-white/80 border border-current/10 flex-shrink-0">
-                <i data-lucide="shield-alert" className="w-4 h-4"></i>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold">
-                  {earlySignals.statusTitle}: {earlySignals.gentleNudge}
-                </h4>
-                <p className="text-[11px] opacity-80 mt-0.5">
-                  {earlySignals.recommendation}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
-                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5"
-              >
-                <span>🫧 2-Min Bubble Break</span>
-              </button>
-
-              <button
-                onClick={() => onQuickReset(earlySignals.recommendedActivity)}
-                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5 self-start sm:self-center"
-              >
-                <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
-                <span>{earlySignals.recommendedActivity?.title || 'Start Tailored Reset'}</span>
-              </button>
-            </div>
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#e8eae6] text-xs font-semibold text-[#18201d] shadow-sm">
+            <div className={`w-2 h-2 rounded-full ${isElevatedStress ? 'bg-[#c25e40]' : 'bg-[#2d6a4f]'} animate-pulse`}></div>
+            <span>{stressStatusTitle}</span>
           </div>
-        )}
-      </div>
 
-      {/* DYNAMIC STRESS SUGGESTION BANNER (Triggered when user telemetry indicates stress) */}
-      {isHighStressState && (
-        <div className="stress-bubble-suggestion-banner animate-fade-in">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-md shadow-purple-500/25 flex-shrink-0 animate-bounce">
-                🫧
-              </div>
-              <div className="space-y-1 text-left">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-extrabold uppercase tracking-wide pulse-trigger-indicator">
-                    ⚡ Stress Pattern Detected
-                  </span>
-                  <span className="text-xs font-bold text-slate-800">
-                    High Cognitive Load & Friction Forecasted
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
-                  Your recent signals (workload, sleep, or interruptions) indicate heightened tension. We recommend a 2-minute <strong>Bubble Rhythm</strong> or <strong>Zen Cairn Balance</strong> reset to release cognitive friction and calm working memory.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto flex-shrink-0">
-              <button
-                onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold shadow-md shadow-purple-500/25 transition-all flex items-center gap-2 hover:scale-105"
-              >
-                <span>🫧 Launch Bubble Rhythm</span>
-                <i data-lucide="play" className="w-3.5 h-3.5"></i>
-              </button>
-
-              <button
-                onClick={() => onOpenMiniGames && onOpenMiniGames('zen-garden', 'zen_balance')}
-                className="px-4 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-bold transition-all flex items-center gap-1.5"
-              >
-                <span>🪨 Zen Garden</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PREEMPTIVE BURNOUT SHIELD & FRICTION FORECAST SUITE */}
-      {frictionForecast && (
-        <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1 space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
-                  <i data-lucide="shield" className="w-4 h-4 text-emerald-600"></i>
-                  <span>Preemptive Burnout Forecast</span>
-                </span>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  frictionForecast.level === 'critical' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                  frictionForecast.level === 'elevated' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                  'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                }`}>
-                  {frictionForecast.levelTitle}
-                </span>
-              </div>
-
-              <div className="space-y-1 max-w-lg">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-700">Friction & Fatigue Pressure Index:</span>
-                  <span className="font-bold text-slate-900">{frictionForecast.score}%</span>
-                </div>
-                <div className="friction-meter-track">
-                  <div 
-                    className={`friction-meter-fill ${frictionForecast.level}`}
-                    style={{ width: `${frictionForecast.score}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                {frictionForecast.description}
-              </p>
-            </div>
-
-            {/* Action Buttons: 1-Tap Shield Mode & 10s Unfreeze */}
-            <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0 pt-2 md:pt-0">
-              <button
-                onClick={onOpenDeEscalator}
-                className="px-4 py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-extrabold flex items-center gap-2 transition-all shadow-sm hover:scale-105"
-                title="Open 10-Second Anti-Paralysis Reset"
-              >
-                <i data-lucide="zap" className="w-4 h-4 text-amber-600"></i>
-                <span>⚡ 10s Unfreeze</span>
-              </button>
-
-              <button
-                onClick={onToggleShieldMode}
-                className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 transition-all shadow-sm ${
-                  isShieldModeActive 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-300' 
-                    : 'bg-slate-900 hover:bg-slate-800 text-white'
-                }`}
-              >
-                <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-4 h-4"></i>
-                <span>{isShieldModeActive ? '🛡️ Shield Active (2-Min Mode)' : '🛡️ Activate Shield Mode'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Active Theme Work Mode Banner */}
-      <div className="work-mode-banner">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">{activeModeConfig.icon}</span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-extrabold text-slate-900">{activeModeConfig.modeTitle}</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-white text-slate-800 border border-slate-200 shadow-2xs">
-                  Active Work Mode
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5">{activeModeConfig.workDescription}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 4-Pill Work Mode Switcher */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-          {Object.values(THEME_WORK_MODES).map((mode) => {
-            const isSelected = theme === mode.id;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => setTheme(mode.id)}
-                className={`work-mode-pill-btn ${isSelected ? `active-${mode.id}` : ''}`}
-                title={mode.workDescription}
-              >
-                <span className="text-base">{mode.icon}</span>
-                <div className="flex-1 truncate text-left">
-                  <div className="text-xs font-bold leading-tight truncate">{mode.name.split(' ')[0]}</div>
-                  <div className="text-[10px] opacity-75 truncate">{mode.modeTitle.split('&')[0]}</div>
-                </div>
-                {isSelected && (
-                  <i data-lucide="check" className="w-3.5 h-3.5 flex-shrink-0"></i>
-                )}
-              </button>
-            );
-          })}
+          <button
+            onClick={onOpenCoach}
+            className="btn-secondary py-1.5 px-3 text-xs"
+          >
+            <i data-lucide="bot" className="w-3.5 h-3.5 text-[#1b4332]"></i>
+            <span>Ask Coach</span>
+          </button>
         </div>
       </div>
 
-      {/* NEW FEATURE: Distraction & Focus Dashboard Widget */}
-      <DistractionDashboardCard
-        user={user}
-        distractions={distractions}
-        focusSessions={focusSessions}
-        distractionGoalMinutes={distractionGoalMinutes}
-        onOpenDistractions={onOpenDistractions}
-        onStartFocusSession={onStartFocusSession}
-        onAddDistraction={onAddDistraction}
-        onSignIn={onSignIn}
-      />
-
-      {/* NEW FEATURE: Mindful Mini-Breaks & Games Recommendation Widget */}
-      <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-purple-100 bg-gradient-to-r from-purple-50/40 via-white to-amber-50/30 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-xl shadow-2xs">
-              🎮
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-extrabold text-slate-900">Mindful Mini-Breaks & Mini-Games</h3>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  isHighStressState ? 'bg-purple-600 text-white animate-pulse' : 'bg-purple-100 text-purple-800 border border-purple-200'
-                }`}>
-                  {isHighStressState ? '🎯 Recommended for Your Stress State' : '2 Games Available'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Low-arousal tactile and rhythm resets to clear cognitive fatigue and restore focus
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => onOpenMiniGames && onOpenMiniGames('zen-garden', 'zen_balance')}
-              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all flex items-center gap-1.5"
-            >
-              <span>🪨 Zen Garden</span>
-            </button>
-            <button
-              onClick={() => onOpenMiniGames && onOpenMiniGames('bubble-rhythm', 'rhythm_pop')}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm shadow-purple-500/20 transition-all flex items-center gap-1.5 hover:scale-105"
-            >
-              <i data-lucide="play" className="w-3.5 h-3.5"></i>
-              <span>Play Bubble Rhythm</span>
-            </button>
-            <button
-              onClick={onOpenMiniGamesHub}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
-            >
-              <span>Hub</span>
-            </button>
-          </div>
-        </div>
-
-        {recentGameSessions.length > 0 && (
-          <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-xs text-slate-600">
-            <span className="font-semibold text-purple-900">
-              ⚡ {recentGameSessions.length} sessions completed • {Math.round(recentGameSessions.reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0) / 60)}m total mental pause
-            </span>
-            <button
-              onClick={onOpenMiniGamesHub}
-              className="font-bold text-purple-700 hover:text-purple-900 flex items-center gap-1"
-            >
-              <span>View Game Stats & History →</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* AI STRESS PREDICTION & PERSONALIZED WELL-BEING RECOMMENDATION SYSTEM */}
-      <PersonalizedWellBeingCard
-        user={user}
-        profile={profile}
-        checkInStatus={checkInStatus}
-        earlySignals={earlySignals}
-        recommendationsData={wellbeingRecommendations}
-        onStartIntervention={onStartIntervention}
-        onQuickReset={onQuickReset}
-        onOpenMiniGames={onOpenMiniGames}
-        onOpenCoach={onOpenCoach}
-        onOpenDistractions={onOpenDistractions}
-        onSignIn={onSignIn}
-      />
-
-      {/* Daily Well-Being Monitoring Widget */}
-      <DailyCheckInCard
-        profile={profile}
-        upcomingPressures={upcomingPressures}
-        checkInStatus={checkInStatus}
-        isHighStressState={isHighStressState}
-        onOpenMiniGames={onOpenMiniGames}
-        onSave={onSaveDailyCheckIn}
-      />
-
-      {/* Main Grid: Today's Habits & Right Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 Cols): Today's Habits */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* 2. KEY WELLBEING STATUS HIGHLIGHTS ROW */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Status 1: Current Stress */}
+        <div className="breathly-card p-4 space-y-1">
           <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Stress State</span>
+            <div className={`w-2.5 h-2.5 rounded-full ${isElevatedStress ? 'bg-[#c25e40]' : 'bg-[#2d6a4f]'}`}></div>
+          </div>
+          <div className="text-sm sm:text-base font-bold text-[#18201d] truncate">
+            {isElevatedStress ? 'Elevated Load' : 'Calm & Grounded'}
+          </div>
+          <p className="text-[11px] text-[#55645e] truncate">
+            {frictionForecast ? `${frictionForecast.score}% friction` : 'Steady baseline'}
+          </p>
+        </div>
+
+        {/* Status 2: Today's Check-in */}
+        <div className="breathly-card p-4 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Today's Check-in</span>
+            <i data-lucide={hasCheckedIn ? "check-circle" : "clock"} className={`w-3.5 h-3.5 ${hasCheckedIn ? 'text-[#2d6a4f]' : 'text-[#b8772a]'}`}></i>
+          </div>
+          <div className="text-sm sm:text-base font-bold text-[#18201d]">
+            {hasCheckedIn ? 'Completed' : 'Pending'}
+          </div>
+          <p className="text-[11px] text-[#55645e] truncate">
+            {hasCheckedIn ? `Mood: ${todayEntry?.overallFeeling || 'Good'}` : 'Tap to log daily pulse'}
+          </p>
+        </div>
+
+        {/* Status 3: Wellness Streak */}
+        <div className="breathly-card p-4 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Wellness Streak</span>
+            <span className="text-xs">🔥</span>
+          </div>
+          <div className="text-sm sm:text-base font-bold text-[#18201d]">
+            {totalStreakDays} Days
+          </div>
+          <p className="text-[11px] text-[#55645e] truncate">
+            {isShieldModeActive ? 'Shield mode active' : 'Consistency protected'}
+          </p>
+        </div>
+
+        {/* Status 4: Mood & Energy */}
+        <div className="breathly-card p-4 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Mood & Energy</span>
+            <span className="text-xs">🌿</span>
+          </div>
+          <div className="text-sm sm:text-base font-bold text-[#18201d]">
+            {todayEntry ? `${todayEntry.stressRating || 5}/10 Strain` : 'Balanced'}
+          </div>
+          <p className="text-[11px] text-[#55645e] truncate">
+            {profile?.peakTime ? `Peak energy: ${profile.peakTime}` : 'Optimal daytime pace'}
+          </p>
+        </div>
+
+        {/* Status 5: Focus & Rest */}
+        <div className="breathly-card p-4 space-y-1 col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Focus & Rest</span>
+            <i data-lucide="timer" className="w-3.5 h-3.5 text-[#2a6b74]"></i>
+          </div>
+          <div className="text-sm sm:text-base font-bold text-[#18201d]">
+            {totalFocusMinutes > 0 ? `${totalFocusMinutes}m Focus` : 'Rest Mode'}
+          </div>
+          <p className="text-[11px] text-[#55645e] truncate">
+            {profile?.sleepDuration || '7-8h sleep routine'}
+          </p>
+        </div>
+      </div>
+
+      {/* 3. TODAY'S WELLBEING METRICS */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[#18201d]">Today's Wellbeing</h2>
+          <button onClick={onOpenWeeklyReport} className="text-xs font-semibold text-[#1b4332] hover:underline">
+            View Trends →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Metric 1: Index Score */}
+          <div className="metric-card-clean">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Wellbeing Index</span>
+              <div className="metric-icon-wrap bg-[#e8f3ed] text-[#1b4332]">
+                <i data-lucide="sparkles" className="w-4 h-4"></i>
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold text-[#18201d]">
+                {wellbeing?.score || 82}<span className="text-xs font-normal text-[#82928b]">/100</span>
+              </div>
+              <div className="text-[11px] text-[#2d6a4f] font-semibold mt-0.5">
+                {wellbeing?.trendLabel || '+4% higher than baseline'}
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 2: Habit Consistency */}
+          <div className="metric-card-clean">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Habit Consistency</span>
+              <div className="metric-icon-wrap bg-[#eef6f2] text-[#2d6a4f]">
+                <i data-lucide="check-circle-2" className="w-4 h-4"></i>
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold text-[#18201d]">
+                {totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0}%
+              </div>
+              <div className="text-[11px] text-[#55645e] mt-0.5">
+                {completedCount} of {totalHabits} completed today
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 3: Mindful Minutes */}
+          <div className="metric-card-clean">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Mindful Minutes</span>
+              <div className="metric-icon-wrap bg-[#eff7f8] text-[#2a6b74]">
+                <i data-lucide="wind" className="w-4 h-4"></i>
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold text-[#18201d]">
+                {Math.round(recentGameSessions.reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0) / 60) + 6}m
+              </div>
+              <div className="text-[11px] text-[#55645e] mt-0.5">
+                Breathing & grounding breaks
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 4: Distraction Shield */}
+          <div className="metric-card-clean">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Focus Shield</span>
+              <div className="metric-icon-wrap bg-[#fef7ed] text-[#b8772a]">
+                <i data-lucide="shield" className="w-4 h-4"></i>
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold text-[#18201d]">
+                {distractions.length} Logs
+              </div>
+              <div className="text-[11px] text-[#55645e] mt-0.5">
+                {distractionGoalMinutes}m daily budget
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. STRESS PROTECTION SECTION */}
+      <div className={`stress-protection-banner ${isElevatedStress ? 'elevated' : ''}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">Today’s Adaptive Habits</h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                {completedCount}/{totalHabits}
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#1b4332] flex items-center gap-1.5">
+                <i data-lucide="shield-check" className="w-4 h-4"></i>
+                <span>Stress Protection</span>
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                isElevatedStress ? 'bg-[#fdf2ee] text-[#c25e40] border border-[#fad5c8]' : 'bg-[#e8f3ed] text-[#1b4332] border border-[#cfe1d7]'
+              }`}>
+                {isElevatedStress ? 'Early Stress Spike Detected' : 'Physiological Pacing Steady'}
               </span>
             </div>
 
+            <p className="text-xs sm:text-[13px] text-[#55645e] leading-relaxed max-w-2xl">
+              {isElevatedStress
+                ? 'Your recent answers and routine signals show heightened cognitive load. We recommend switching to 2-minute micro-doses or taking a 60-second breathing pause to protect your energy.'
+                : 'Your daily cognitive load and routine signals are balanced. No fatigue spikes detected in the last 24 hours.'}
+            </p>
+          </div>
+
+          {/* Direct Proactive Actions */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto flex-shrink-0">
             <button
-              onClick={onAddHabit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-indigo-700 shadow-sm transition-colors"
+              onClick={onOpenDeEscalator}
+              className="btn-secondary py-2 px-3 text-xs"
+              title="10-Second Anti-Paralysis Reset"
             >
+              <i data-lucide="zap" className="w-3.5 h-3.5 text-[#b8772a]"></i>
+              <span>10s Circuit Breaker</span>
+            </button>
+
+            <button
+              onClick={onToggleShieldMode}
+              className={`py-2 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
+                isShieldModeActive
+                  ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm'
+                  : 'bg-white border-[#e8eae6] text-[#18201d] hover:bg-[#f7f8f6]'
+              }`}
+            >
+              <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-3.5 h-3.5"></i>
+              <span>{isShieldModeActive ? 'Shield On (2-Min Mode)' : 'Activate Shield Mode'}</span>
+            </button>
+
+            <button
+              onClick={() => onQuickReset(ACTIVITIES['breathing-426'])}
+              className="btn-primary py-2 px-3 text-xs"
+            >
+              <i data-lucide="wind" className="w-3.5 h-3.5"></i>
+              <span>60s Breath Reset</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. RECOMMENDED FOR YOU (6 PERSONALIZED ACTIVITIES) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-[#18201d]">Recommended for You</h2>
+            <p className="text-xs text-[#55645e]">
+              Personalized micro-actions aligned with your current daily baseline.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {recommendedActivities.map((act) => (
+            <div
+              key={act.id}
+              onClick={act.action}
+              className="activity-rec-card group"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-xl ${act.iconBg} ${act.iconColor} transition-transform group-hover:scale-105`}>
+                    <i data-lucide={act.icon} className="w-4 h-4"></i>
+                  </div>
+                  <span className="activity-badge bg-[#f7f8f6] text-[#55645e] border border-[#e8eae6]">
+                    {act.duration}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-[#18201d] group-hover:text-[#1b4332] transition-colors">
+                    {act.title}
+                  </h3>
+                  <p className="text-xs text-[#55645e] mt-0.5 leading-relaxed">
+                    {act.desc}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#f0f2ef] text-xs">
+                <span className="text-[11px] font-semibold text-[#82928b]">{act.tag}</span>
+                <span className="font-bold text-[#1b4332] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  <span>{act.actionLabel}</span>
+                  <i data-lucide="arrow-right" className="w-3 h-3"></i>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 6. TODAY'S HABITS SECTION */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-[#18201d]">Today’s Adaptive Habits</h2>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f3ed] text-[#1b4332] border border-[#cfe1d7]">
+              {completedCount} of {totalHabits} done
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (onToggleShieldMode) onToggleShieldMode();
+              }}
+              className="text-xs font-semibold text-[#b8772a] hover:underline hidden sm:inline"
+            >
+              {isShieldModeActive ? '⚡ Minimum Mode is Active' : '⚡ Scale All to Minimum Mode'}
+            </button>
+
+            <button onClick={onAddHabit} className="btn-primary py-1.5 px-3 text-xs">
               <i data-lucide="plus" className="w-3.5 h-3.5"></i>
               <span>Add Habit</span>
             </button>
           </div>
+        </div>
 
-          {/* Habit Card List */}
-          <div className="space-y-3">
+        {habits.length === 0 ? (
+          <div className="empty-state-box py-10">
+            <div className="empty-state-icon">
+              <i data-lucide="sparkles" className="w-6 h-6"></i>
+            </div>
+            <div className="empty-state-title">No habits created yet</div>
+            <p className="empty-state-desc">
+              Start with a simple 2-minute daily ritual. Breathly scales difficulty dynamically so you never fail.
+            </p>
+            <button onClick={onAddHabit} className="btn-primary text-xs mt-2">
+              <span>Create Your First Habit</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {habits.map((habit) => {
               const isFull = habit.todayStatus === 'full';
               const isMin = habit.todayStatus === 'min';
@@ -4775,108 +5767,73 @@ function DashboardView({
               return (
                 <div
                   key={habit.id}
-                  className={`habit-card ${isFull ? 'completed-full' : isMin ? 'completed-min' : 'cursor-pointer'}`}
-                  onClick={(e) => {
-                    if (e.target.closest('button')) return;
-                    onToggleHabit(habit.id, 'full');
-                  }}
+                  className={`habit-card ${isFull ? 'completed-full' : isMin ? 'completed-min' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    {/* Checkbox & Details */}
                     <div className="flex items-start gap-3 flex-1">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleHabit(habit.id, 'full');
-                        }}
+                        onClick={() => onToggleHabit(habit.id, 'full')}
                         className={`habit-checkbox ${isFull ? 'checked-full' : isMin ? 'checked-min' : ''}`}
-                        title={isFull || isMin ? "Completed today - click to review or unmark" : "Touch to start countdown timer"}
+                        title={isFull || isMin ? 'Marked complete — tap to unmark or review' : 'Click to start habit timer'}
                       >
                         {(isFull || isMin) ? (
-                          <i data-lucide="check" className="w-4 h-4 text-white"></i>
+                          <i data-lucide="check" className="w-3.5 h-3.5 text-white"></i>
                         ) : (
-                          <i data-lucide="play" className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-600"></i>
+                          <i data-lucide="play" className="w-3 h-3 text-[#82928b]"></i>
                         )}
                       </button>
 
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{habit.icon || '⚡'}</span>
-                          <h3 className={`font-bold text-sm text-slate-900 ${isFull || isMin ? 'line-through opacity-70' : ''}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">{habit.icon || '🌿'}</span>
+                          <h4 className={`text-sm font-bold text-[#18201d] ${isFull || isMin ? 'line-through opacity-70' : ''}`}>
                             {habit.title}
-                          </h3>
+                          </h4>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
+                        <p className="text-xs text-[#55645e] mt-0.5">
                           {isShieldModeActive ? (
-                            <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              🛡️ Shield Target: {habit.minModeVal} {habit.minModeUnit} (2-Min Mode)
+                            <span className="text-[#1b4332] font-bold bg-[#e8f3ed] px-1.5 py-0.2 rounded">
+                              🛡️ 2-Min Shield Target: {habit.minModeVal} {habit.minModeUnit}
                             </span>
                           ) : (
                             <span>Target: {habit.targetVal} {habit.targetUnit}</span>
                           )}
-                          <span>•</span>
+                          <span className="mx-1">•</span>
                           <span className="capitalize">{habit.preferredTime}</span>
-                          {!isFull && !isMin && (
-                            <>
-                              <span>•</span>
-                              <span className="text-indigo-600 font-bold flex items-center gap-1">
-                                <i data-lucide="timer" className="w-3 h-3"></i>
-                                Touch to start timer
-                              </span>
-                            </>
-                          )}
-                        </div>
+                        </p>
                       </div>
                     </div>
 
-                    {/* Streak Badge */}
                     <div className="flex items-center gap-2">
-                      <div className={`streak-pill ${isShieldModeActive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}`} title={`${habit.currentStreak} day streak`}>
-                        <span>{isShieldModeActive ? '🛡️' : '🔥'}</span>
-                        <span>{habit.currentStreak}d</span>
-                      </div>
+                      <span className="streak-pill">
+                        <span>🔥</span>
+                        <span>{habit.currentStreak || 0}d</span>
+                      </span>
 
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditHabit(habit);
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                        title="Edit habit"
+                        onClick={() => onEditHabit(habit)}
+                        className="p-1 text-[#82928b] hover:text-[#18201d] rounded-lg transition-colors"
+                        title="Edit Habit"
                       >
-                        <i data-lucide="edit-3" className="w-3.5 h-3.5"></i>
+                        <i data-lucide="more-horizontal" className="w-4 h-4"></i>
                       </button>
                     </div>
                   </div>
 
-                  {/* Bottom Action Row: Minimum Mode & Failure Reason Trigger */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleHabit(habit.id, 'min');
-                        }}
-                        className={`min-mode-pill ${isMin ? 'bg-amber-400 text-slate-950 font-extrabold' : ''}`}
-                        title="Start Minimum Mode countdown (micro-dose)"
-                      >
-                        <span>⚡ Min: {habit.minModeVal} {habit.minModeUnit}</span>
-                      </button>
-                      
-                      {isMin ? (
-                        <span className="text-[10px] text-amber-700 font-semibold">Streak saved!</span>
-                      ) : !isFull && (
-                        <span className="text-[10px] text-slate-400">Micro-timer</span>
-                      )}
-                    </div>
+                  {/* Micro-Dose Button & Failure Analysis Action */}
+                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-[#f0f2ef] text-xs">
+                    <button
+                      onClick={() => onToggleHabit(habit.id, 'min')}
+                      className={`min-mode-pill ${isMin ? 'bg-[#fbe2bd] text-[#b8772a] font-extrabold' : ''}`}
+                      title="Complete with 2-minute micro-dose to protect streak"
+                    >
+                      <span>⚡ Min: {habit.minModeVal} {habit.minModeUnit}</span>
+                    </button>
 
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenFailureModal(habit);
-                      }}
-                      className="text-[11px] text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1 font-medium"
+                      onClick={() => onOpenFailureModal(habit)}
+                      className="text-[11px] text-[#82928b] hover:text-[#c25e40] flex items-center gap-1 transition-colors"
                     >
                       <i data-lucide="help-circle" className="w-3 h-3"></i>
                       <span>What got in the way?</span>
@@ -4886,85 +5843,36 @@ function DashboardView({
               );
             })}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Right Column: AI Pattern Insights & Quick Hub */}
-        <div className="space-y-4">
-          {/* AI Pattern Insights Card */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="sparkles" className="w-3.5 h-3.5"></i>
-                <span>Well-Being Intelligence</span>
-              </h3>
-              <button 
-                onClick={onOpenWeeklyReport}
-                className="text-[11px] text-slate-500 hover:text-slate-900 font-semibold"
-              >
-                Full Report →
-              </button>
-            </div>
+      {/* 7. DAILY CHECK-IN & FOCUS RADAR MINI WIDGETS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2">
+        {/* Daily Check-in Form Card */}
+        <DailyCheckInCard
+          profile={profile}
+          upcomingPressures={upcomingPressures}
+          checkInStatus={checkInStatus}
+          isHighStressState={isHighStressState}
+          onOpenMiniGames={onOpenMiniGames}
+          onSave={onSaveDailyCheckIn}
+        />
 
-            {insights.slice(0, 2).map((ins, i) => (
-              <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                <div className="font-bold text-slate-900 mb-0.5">{ins.title}</div>
-                <p className="text-slate-600 text-[11px] leading-relaxed">{ins.text}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Tailored Resets Hub */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
-              <span>Tailored Digital Resets</span>
-            </h3>
-
-            <div className="space-y-2">
-              {[
-                ACTIVITIES['breathing-box'],
-                ACTIVITIES['breathing-sigh'],
-                ACTIVITIES['breathing-478']
-              ].map(act => (
-                <div
-                  key={act.id}
-                  onClick={() => onQuickReset(act)}
-                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between cursor-pointer transition-all"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">🫁</span>
-                    <div>
-                      <div className="font-semibold text-xs text-slate-900">{act.title}</div>
-                      <div className="text-[10px] text-teal-700 font-medium">{act.tag}</div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-bold">{act.duration}s</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Hub Navigation */}
-          <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-2">
-            <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Navigation</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                onClick={onOpenDistractions}
-                className="p-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 font-semibold flex items-center gap-2 transition-all shadow-2xs"
-              >
-                <span>🎯</span>
-                <span>Focus Radar</span>
-              </button>
-              <button
-                onClick={onOpenGoals}
-                className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold flex items-center gap-2 transition-all"
-              >
-                <span>🏆</span>
-                <span>My Goals</span>
-              </button>
-              <button
-                onClick={onOpenWeeklyReport}
-                className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold flex items-center gap-2 transition-all"
+        {/* Focus & Distraction Radar Widget */}
+        <DistractionDashboardCard
+          user={user}
+          distractions={distractions}
+          focusSessions={focusSessions}
+          distractionGoalMinutes={distractionGoalMinutes}
+          onOpenDistractions={onOpenDistractions}
+          onStartFocusSession={onStartFocusSession}
+          onAddDistraction={onAddDistraction}
+          onSignIn={onSignIn}
+        />
+      </div>
+    </div>
+  );
+}n-all"
               >
                 <span>📊</span>
                 <span>Weekly Stats</span>
@@ -5940,7 +6848,7 @@ function CoachView({
       </div>
 
       {/* Main Conversation Box */}
-      <div className="glass-panel rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-lg flex flex-col h-[540px] overflow-hidden">
+      <div className="breathly-card p-4 sm:p-6 flex flex-col h-[540px] overflow-hidden">
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {messages.map((m, idx) => (
@@ -6071,13 +6979,13 @@ function CoachView({
             value={inputText}
             disabled={isTyping}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isTyping ? "Coach is thinking..." : "Ask your coach anything about focus, distractions, habits, or fatigue..."}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-indigo-600 disabled:opacity-60"
+            placeholder={isTyping ? "Coach is formulating guidance..." : "Ask your coach anything about focus, calm, habits, or fatigue..."}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] text-[#18201d] text-xs focus:outline-none focus:border-[#1b4332] disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={isTyping || !inputText.trim()}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary py-2.5 px-4 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>{isTyping ? "..." : "Send"}</span>
             <i data-lucide="send" className="w-3.5 h-3.5"></i>
@@ -6100,14 +7008,14 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-8 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-[#55645e] hover:text-[#18201d] font-semibold">
           <i data-lucide="arrow-left" className="w-4 h-4"></i>
           <span>Back to Dashboard</span>
         </button>
 
         <button
           onClick={onAddHabit}
-          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+          className="btn-primary py-1.5 px-3.5 text-xs"
         >
           <i data-lucide="plus" className="w-3.5 h-3.5"></i>
           <span>Add Linked Habit</span>
@@ -6115,8 +7023,8 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
       </div>
 
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Goal → Habit Hierarchy</h1>
-        <p className="text-sm text-slate-600 mt-1">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Goal → Habit Hierarchy</h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-1">
           Daily micro-habits feed directly into your overarching life ambitions.
         </p>
       </div>
@@ -6127,20 +7035,20 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
           const totalStreak = linkedHabits.reduce((acc, h) => acc + h.currentStreak, 0);
 
           return (
-            <div key={goal.id} className="glass-panel rounded-3xl p-6 border border-slate-200 bg-white shadow-sm space-y-4">
+            <div key={goal.id} className="breathly-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-[#e8f3ed] border border-[#cfe1d7] flex items-center justify-center text-xl">
                     {goal.icon || '🎯'}
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-base text-slate-900">{goal.title}</h3>
-                    <p className="text-xs text-slate-500">{linkedHabits.length} daily habits linked</p>
+                    <h3 className="font-extrabold text-base text-[#18201d]">{goal.title}</h3>
+                    <p className="text-xs text-[#55645e]">{linkedHabits.length} daily habits linked</p>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                  <span className="text-xs font-bold text-[#b8772a] bg-[#fef7ed] px-2.5 py-1 rounded-full border border-[#fbe2bd]">
                     🔥 {totalStreak} Total Days Streak
                   </span>
                 </div>
@@ -6149,19 +7057,19 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
               {/* Linked Habits Sub-list */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 {linkedHabits.map((h) => (
-                  <div key={h.id} className="goal-item-card flex items-center justify-between">
+                  <div key={h.id} className="p-3 rounded-xl border border-[#e8eae6] bg-[#f7f8f6] flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-base">{h.icon}</span>
                       <div>
-                        <div className="text-xs font-bold text-slate-900">{h.title}</div>
-                        <div className="text-[11px] text-slate-500">{h.targetVal} {h.targetUnit} (⚡ Min: {h.minModeVal})</div>
+                        <div className="text-xs font-bold text-[#18201d]">{h.title}</div>
+                        <div className="text-[11px] text-[#55645e]">{h.targetVal} {h.targetUnit} (⚡ Min: {h.minModeVal})</div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-700">{h.currentStreak}d</span>
+                    <span className="text-xs font-bold text-[#18201d]">{h.currentStreak}d</span>
                   </div>
                 ))}
                 {linkedHabits.length === 0 && (
-                  <div className="text-xs text-slate-400 italic p-3">No habits linked to this goal yet.</div>
+                  <div className="text-xs text-[#82928b] italic p-3">No habits linked to this goal yet.</div>
                 )}
               </div>
             </div>
@@ -6235,7 +7143,7 @@ function WeeklyReportView({
   return (
     <div className="max-w-4xl mx-auto py-4 sm:py-8 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-[#55645e] hover:text-[#18201d] font-semibold">
           <i data-lucide="arrow-left" className="w-4 h-4"></i>
           <span>Back to Dashboard</span>
         </button>
@@ -6243,65 +7151,66 @@ function WeeklyReportView({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenDistractions}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold border border-indigo-200 flex items-center gap-1.5 transition-all"
+            className="btn-secondary py-1.5 px-3 text-xs"
           >
-            <span>🎯 Focus Radar</span>
+            <i data-lucide="timer" className="w-3.5 h-3.5 text-[#1b4332]"></i>
+            <span>Focus Radar</span>
           </button>
           <button
             onClick={() => onQuickReset(earlySignals.recommendedActivity)}
-            className="px-3.5 py-1.5 rounded-xl bg-teal-50 text-teal-800 hover:bg-teal-100 text-xs font-bold border border-teal-200 flex items-center gap-1.5"
+            className="btn-primary py-1.5 px-3 text-xs"
           >
-            <i data-lucide="wind" className="w-3.5 h-3.5 text-teal-600"></i>
-            <span>Take Well-Being Reset</span>
+            <i data-lucide="wind" className="w-3.5 h-3.5"></i>
+            <span>Take Wellbeing Reset</span>
           </button>
         </div>
       </div>
 
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Your Digital Well-Being Intelligence Report</h1>
-        <p className="text-sm text-slate-600 mt-1">
-          Behavioral completion trends, focus vs. distraction balance, and multi-signal pressure detection.
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Digital Wellbeing Intelligence Report</h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-1">
+          Behavioral completion trends, focus vs. distraction balance, and multi-signal stress load telemetry.
         </p>
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="metric-card">
-          <span className="text-slate-500 text-[11px] font-semibold uppercase">Habit Consistency</span>
-          <span className="text-2xl font-black text-emerald-600">{consistencyPercent > 0 ? `${consistencyPercent}%` : '0%'}</span>
-          <span className="text-[10px] text-slate-400">{consistencyPercent > 0 ? `${consistencyPercent}% 7-day adherence` : 'Start habits to build consistency'}</span>
+        <div className="breathly-card p-4 space-y-1">
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Habit Consistency</span>
+          <span className="text-2xl font-black text-[#2d6a4f]">{consistencyPercent > 0 ? `${consistencyPercent}%` : '0%'}</span>
+          <span className="text-[10px] text-[#55645e]">{consistencyPercent > 0 ? `${consistencyPercent}% 7-day adherence` : 'Start habits to build consistency'}</span>
         </div>
 
-        <div className="metric-card">
-          <span className="text-slate-500 text-[11px] font-semibold uppercase">Average Streak</span>
-          <span className="text-2xl font-black text-indigo-600">{avgStreak} Days</span>
-          <span className="text-[10px] text-slate-400">{avgStreak > 0 ? 'Active momentum' : 'No active streak'}</span>
+        <div className="breathly-card p-4 space-y-1">
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Average Streak</span>
+          <span className="text-2xl font-black text-[#1b4332]">{avgStreak} Days</span>
+          <span className="text-[10px] text-[#55645e]">{avgStreak > 0 ? 'Active momentum' : 'No active streak'}</span>
         </div>
 
-        <div className="metric-card">
-          <span className="text-slate-500 text-[11px] font-semibold uppercase">Weekly Focus Time</span>
-          <span className="text-2xl font-black text-indigo-700">{totalWeeklyFocusMin}m</span>
-          <span className="text-[10px] text-slate-400">{weekFocusSessions.length} sessions logged</span>
+        <div className="breathly-card p-4 space-y-1">
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Weekly Focus Time</span>
+          <span className="text-2xl font-black text-[#2a6b74]">{totalWeeklyFocusMin}m</span>
+          <span className="text-[10px] text-[#55645e]">{weekFocusSessions.length} sessions logged</span>
         </div>
 
-        <div className="metric-card">
-          <span className="text-slate-500 text-[11px] font-semibold uppercase">Weekly Distractions</span>
-          <span className="text-2xl font-black text-amber-700">{totalWeeklyDistractionMin}m</span>
-          <span className="text-[10px] text-slate-400">Avg {avgDailyDistraction}m / day</span>
+        <div className="breathly-card p-4 space-y-1">
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Weekly Distractions</span>
+          <span className="text-2xl font-black text-[#b8772a]">{totalWeeklyDistractionMin}m</span>
+          <span className="text-[10px] text-[#55645e]">Avg {avgDailyDistraction}m / day</span>
         </div>
       </div>
 
-      {/* Section 6: Weekly Habit vs. Distraction Balance Comparison */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-4">
+      {/* Weekly Habit vs. Distraction Balance Comparison */}
+      <div className="breathly-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <i data-lucide="scale" className="w-5 h-5 text-indigo-600"></i>
-              <span>Weekly Habit vs. Distraction Balance</span>
+            <h3 className="text-base font-extrabold text-[#18201d] flex items-center gap-2">
+              <i data-lucide="scale" className="w-4 h-4 text-[#1b4332]"></i>
+              <span>Habit Investment vs. Distraction Balance</span>
             </h3>
-            <p className="text-xs text-slate-500">Compare time invested in key habits against distraction volume</p>
+            <p className="text-xs text-[#55645e]">Compare time invested in key habits against distraction volume</p>
           </div>
-          <span className="text-xs font-bold text-slate-500">Past 7 Days</span>
+          <span className="text-xs font-bold text-[#55645e]">Past 7 Days</span>
         </div>
 
         <div className="space-y-3 pt-2">
@@ -6314,18 +7223,18 @@ function WeeklyReportView({
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <span className="text-base">{habit.icon}</span>
-                    <span className="font-bold text-slate-900">{habit.title}</span>
+                    <span className="font-bold text-[#18201d]">{habit.title}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-emerald-700 font-bold">🔥 {habit.currentStreak || 0}d streak</span>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-slate-600 font-medium">Target: {habit.targetVal} {habit.targetUnit}</span>
+                    <span className="text-[#2d6a4f] font-bold">🔥 {habit.currentStreak || 0}d streak</span>
+                    <span className="text-[#82928b]">•</span>
+                    <span className="text-[#55645e] font-medium">Target: {habit.targetVal} {habit.targetUnit}</span>
                   </div>
                 </div>
 
-                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
+                <div className="h-2 w-full rounded-full bg-[#f0f2ee] overflow-hidden flex">
                   <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                    className="h-full bg-[#1b4332] rounded-full transition-all duration-700"
                     style={{ width: `${Math.max((habit.currentStreak || 0) > 0 ? 10 : 0, habitFocusRatio)}%` }}
                   ></div>
                 </div>
@@ -6335,20 +7244,20 @@ function WeeklyReportView({
         </div>
       </div>
 
-      {/* Section 8: Weekly Distraction & Attention Intelligence Breakdown */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-4">
+      {/* Weekly Distraction & Attention Intelligence Breakdown */}
+      <div className="breathly-card p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <i data-lucide="target" className="w-5 h-5 text-indigo-600"></i>
-              <span>Section 8: Weekly Distraction & Focus Intelligence</span>
+            <h3 className="text-base font-extrabold text-[#18201d] flex items-center gap-2">
+              <i data-lucide="target" className="w-4 h-4 text-[#1b4332]"></i>
+              <span>Weekly Attention & Focus Intelligence</span>
             </h3>
-            <p className="text-xs text-slate-500">Detailed behavioral breakdown of study interruptions and recovery</p>
+            <p className="text-xs text-[#55645e]">Detailed behavioral breakdown of interruptions and focus recovery</p>
           </div>
 
           <button
             onClick={onOpenDistractions}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 self-start sm:self-center"
+            className="btn-primary py-1.5 px-3 text-xs self-start sm:self-center"
           >
             <span>Open Distraction Radar</span>
             <i data-lucide="arrow-right" className="w-3.5 h-3.5"></i>
@@ -6356,52 +7265,52 @@ function WeeklyReportView({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Top Distraction Category</span>
-            <div className="text-base font-black text-slate-900">{weekDistractions.length > 0 ? topWeekCategory : '--'}</div>
-            <p className="text-[11px] text-slate-500">{weekDistractions.length > 0 ? `${topWeekCatMin}m total across 7 days` : 'No distractions logged'}</p>
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] space-y-1">
+            <span className="text-[10px] uppercase font-bold text-[#82928b]">Top Distraction Category</span>
+            <div className="text-base font-black text-[#18201d]">{weekDistractions.length > 0 ? topWeekCategory : '--'}</div>
+            <p className="text-[11px] text-[#55645e]">{weekDistractions.length > 0 ? `${topWeekCatMin}m total across 7 days` : 'No distractions logged'}</p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Daily Distraction Average</span>
-            <div className="text-base font-black text-slate-900">{avgDailyDistraction} min / day</div>
-            <p className="text-[11px] text-slate-500">
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] space-y-1">
+            <span className="text-[10px] uppercase font-bold text-[#82928b]">Daily Distraction Average</span>
+            <div className="text-base font-black text-[#18201d]">{avgDailyDistraction} min / day</div>
+            <p className="text-[11px] text-[#55645e]">
               {totalWeeklyDistractionMin > 0
                 ? (avgDailyDistraction <= (distractionGoalMinutes || 45) ? "Within healthy daily target ✓" : "Slightly above target")
                 : "No distractions this week"}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Focus Efficiency</span>
-            <div className="text-base font-black text-emerald-600">
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] space-y-1">
+            <span className="text-[10px] uppercase font-bold text-[#82928b]">Focus Efficiency</span>
+            <div className="text-base font-black text-[#2d6a4f]">
               {totalWeeklyTime > 0
                 ? `${Math.round((totalWeeklyFocusMin / totalWeeklyTime) * 100)}%`
                 : '--'}
             </div>
-            <p className="text-[11px] text-slate-500">Uninterrupted study share</p>
+            <p className="text-[11px] text-[#55645e]">Uninterrupted focus share</p>
           </div>
         </div>
       </div>
 
       {/* Baseline vs Real-Time Pattern Synthesis */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white shadow-sm space-y-4">
-        <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-          <i data-lucide="bot" className="w-5 h-5 text-indigo-600"></i>
+      <div className="breathly-card p-6 space-y-4">
+        <h3 className="font-extrabold text-base text-[#18201d] flex items-center gap-2">
+          <i data-lucide="bot" className="w-4 h-4 text-[#1b4332]"></i>
           <span>Multi-Signal Pattern Analysis & Guidance</span>
         </h3>
 
         <div className="space-y-3 text-xs">
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="font-bold text-slate-900 mb-1">1. Lifestyle Baseline Alignment</div>
-            <p className="text-slate-600 leading-relaxed">
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6]">
+            <div className="font-bold text-[#18201d] mb-1">1. Lifestyle Baseline Alignment</div>
+            <p className="text-[#55645e] leading-relaxed">
               Your normal baseline is {earlySignals.baseline.hours} daily workload and {earlySignals.baseline.sleep} sleep. {earlySignals.gentleNudge}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-            <div className="font-bold text-slate-900 mb-1">2. Minimum Mode Utilization</div>
-            <p className="text-slate-600 leading-relaxed">
+          <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6]">
+            <div className="font-bold text-[#18201d] mb-1">2. Minimum Mode Utilization</div>
+            <p className="text-[#55645e] leading-relaxed">
               When pressure or fatigue rises, executing the 2-minute Minimum Mode keeps your identity streak alive without taxing cognitive energy.
             </p>
           </div>

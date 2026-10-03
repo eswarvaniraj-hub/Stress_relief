@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Breathly — Personal Adaptive Habit & Digital Well-Being Platform</title>
-  <meta name="description" content="Personal adaptive habit and digital well-being coach that learns your routine, detects early pressure spikes, and scales habit difficulty so you never fail." />
-  <meta name="theme-color" content="#f8fafc" />
+  <title>Breathly — Modern Digital Well-Being & Adaptive Habit Platform</title>
+  <meta name="description" content="Professional digital wellbeing and adaptive habit coach designed with calm aesthetics, early stress detection, and minimum-mode consistency." />
+  <meta name="theme-color" content="#f7f8f6" />
 
   <!-- Google Identity Services SDK (Sign in with Google) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -22,16 +22,53 @@
       darkMode: 'class',
       theme: {
         extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#1b4332',
+              hover: '#143326',
+              light: '#2d6a4f',
+              tint: '#e8f3ed',
+              border: '#cfe1d7',
+              50: '#f0f6f3',
+              100: '#e1ede7',
+              200: '#c5dcce',
+              300: '#9ec2ae',
+              400: '#71a389',
+              500: '#4e866b',
+              600: '#3c6c55',
+              700: '#2d5442',
+              800: '#234436',
+              900: '#1b382d',
+              950: '#0e1f18'
+            },
+            canvas: '#f7f8f6',
+            charcoal: {
+              DEFAULT: '#18201d',
+              muted: '#55645e',
+              soft: '#82928b'
+            },
+            accent: {
+              stress: '#c25e40',
+              mood: '#2d6a4f',
+              energy: '#b8772a',
+              focus: '#2a6b74',
+              streak: '#d94e34'
+            }
+          },
           fontFamily: {
             sans: ['"Plus Jakarta Sans"', 'sans-serif'],
             heading: ['Outfit', 'sans-serif'],
           },
+          borderRadius: {
+            'card': '18px',
+            'card-lg': '22px'
+          },
           animation: {
-            'fade-in': 'fadeIn 0.3s ease-in-out forwards',
+            'fade-in': 'fadeIn 0.25s ease-in-out forwards',
           },
           keyframes: {
             fadeIn: {
-              '0%': { opacity: '0', transform: 'translateY(6px)' },
+              '0%': { opacity: '0', transform: 'translateY(5px)' },
               '100%': { opacity: '1', transform: 'translateY(0)' },
             }
           }
@@ -62,15 +99,15 @@
   <meta http-equiv="Expires" content="0" />
 
   <!-- Custom Design System Styles -->
-  <link rel="stylesheet" href="styles.css?v=4.1" />
+  <link rel="stylesheet" href="styles.css?v=5.0" />
 </head>
-<body class="bg-[#f8fafc] text-slate-900 min-h-screen antialiased">
+<body class="bg-[#f7f8f6] text-[#18201d] min-h-screen antialiased selection:bg-[#e8f3ed] selection:text-[#1b4332]">
   <div id="root"></div>
 
   <!-- Backend API client (talks to the Express/PostgreSQL backend) -->
-  <script src="api.js?v=4.1"></script>
+  <script src="api.js?v=5.0"></script>
 
   <!-- Application Logic -->
-  <script type="text/babel" src="app.js?v=4.1"></script>
+  <script type="text/babel" src="app.js?v=5.0"></script>
 </body>
 </html>
