@@ -5872,24 +5872,6 @@ function DashboardView({
       </div>
     </div>
   );
-}n-all"
-              >
-                <span>📊</span>
-                <span>Weekly Stats</span>
-              </button>
-              <button
-                onClick={onAddPressure}
-                className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold flex items-center gap-2 transition-all"
-              >
-                <span>⚠️</span>
-                <span>Plan Exams</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ==========================================================================
