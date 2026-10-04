@@ -1,3 +1,13 @@
+@import url('./src/theme/tokens.css');
+
+@keyframes slideUp {
+  0% { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* ==========================================================================
    BREATHLY — DIGITAL WELLBEING DESIGN SYSTEM
    Professional modern digital wellbeing product design system.

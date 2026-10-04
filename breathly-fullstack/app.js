@@ -120,8 +120,9 @@ const DEFAULT_INITIAL_HABITS = [
     icon: '📚',
     targetVal: 30,
     targetUnit: 'min',
-    minModeVal: 5,
+    minModeVal: 2,
     minModeUnit: 'min',
+    tinyVersion: 'Read 1 summary page or review 1 key flashcard',
     preferredTime: 'evening',
     currentStreak: 0,
     bestStreak: 0,
@@ -139,6 +140,7 @@ const DEFAULT_INITIAL_HABITS = [
     targetUnit: 'min',
     minModeVal: 2,
     minModeUnit: 'min',
+    tinyVersion: '2 minutes of light neck and shoulder stretches',
     preferredTime: 'morning',
     currentStreak: 0,
     bestStreak: 0,
@@ -154,8 +156,9 @@ const DEFAULT_INITIAL_HABITS = [
     icon: '🫁',
     targetVal: 1,
     targetUnit: 'session',
-    minModeVal: 1,
-    minModeUnit: 'session',
+    minModeVal: 2,
+    minModeUnit: 'min',
+    tinyVersion: 'Take 3 conscious deep breaths with eyes closed',
     preferredTime: 'anytime',
     currentStreak: 0,
     bestStreak: 0,
@@ -189,6 +192,9 @@ const DEFAULT_INITIAL_STATE = {
   habits: DEFAULT_INITIAL_HABITS,
   dailyCheckIns: [],
   lastCheckInDate: null,
+  minimumModeDate: null, // 'YYYY-MM-DD' when turned on for today; automatically inactive next day
+  dismissedMinModeSuggestionDate: null,
+  lastActiveDate: null,
   distractionGoalMinutes: 45,
   distractions: [],
   focusSessions: [],
@@ -197,7 +203,9 @@ const DEFAULT_INITIAL_STATE = {
   upcomingPressures: [],
   resetsHistory: [],
   gameSessions: [],
+  resetSessions: [], // Unified reset telemetry: { id, userId, dateTime, resetType, tensionBefore, tensionAfter, durationSec }
   interventionHistory: [],
+  habitHistory: {}, // 'YYYY-MM-DD' => { completed: true, isRoughDay: boolean, count: number }
   isShieldModeActive: false
 };
 
@@ -207,8 +215,13 @@ function sanitizeLoadedState(savedState) {
   const sanitized = {
     ...DEFAULT_INITIAL_STATE,
     ...savedState,
+    minimumModeDate: savedState.minimumModeDate || null,
+    dismissedMinModeSuggestionDate: savedState.dismissedMinModeSuggestionDate || null,
+    lastActiveDate: savedState.lastActiveDate || null,
+    habitHistory: (savedState.habitHistory && typeof savedState.habitHistory === 'object') ? savedState.habitHistory : {},
     isShieldModeActive: !!savedState.isShieldModeActive,
-    interventionHistory: Array.isArray(savedState.interventionHistory) ? savedState.interventionHistory : []
+    interventionHistory: Array.isArray(savedState.interventionHistory) ? savedState.interventionHistory : [],
+    resetSessions: Array.isArray(savedState.resetSessions) ? savedState.resetSessions : []
   };
 
   // Filter out any legacy mock distraction objects with dist-1..dist-6 IDs
@@ -241,16 +254,23 @@ function sanitizeLoadedState(savedState) {
 
   // Filter out legacy mock resets
   if (Array.isArray(sanitized.resetsHistory)) {
-    sanitized.resetsHistory = sanitized.resetsHistory.filter(r => r && !String(r.id || '').startsWith('reset-'));
+    sanitized.resetsHistory = sanitized.resetsHistory.filter(r => r && !r.isMock && !String(r.id || '').startsWith('mock-reset-'));
   } else {
     sanitized.resetsHistory = [];
   }
 
   // Filter out any legacy mock game sessions with fake- IDs
   if (Array.isArray(sanitized.gameSessions)) {
-    sanitized.gameSessions = sanitized.gameSessions.filter(g => g && !String(g.id || '').startsWith('fake-'));
+    sanitized.gameSessions = sanitized.gameSessions.filter(g => g && !g.isMock && !String(g.id || '').startsWith('fake-'));
   } else {
     sanitized.gameSessions = [];
+  }
+
+  // Clean mock reset sessions
+  if (Array.isArray(sanitized.resetSessions)) {
+    sanitized.resetSessions = sanitized.resetSessions.filter(s => s && !s.isMock && !String(s.id || '').startsWith('mock-'));
+  } else {
+    sanitized.resetSessions = [];
   }
 
   return sanitized;
@@ -296,7 +316,7 @@ class CalmAudioEngine {
       const t = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      
+
       const freqs = type === 'inhale' ? [432, 648] : type === 'hold' ? [528] : [384, 576];
       const rootFreq = freqs[0];
 
@@ -335,7 +355,7 @@ class CalmAudioEngine {
       try {
         if (this.ambientNode.stop) this.ambientNode.stop();
         if (this.ambientNode.disconnect) this.ambientNode.disconnect();
-      } catch (e) {}
+      } catch (e) { }
       this.ambientNode = null;
     }
     this.currentAmbientType = 'none';
@@ -553,7 +573,7 @@ class BubbleRhythmAudioEngine {
 
       osc.start(t);
       osc.stop(t + 0.09);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   playChordPad(preset = 'calm', chordIndex = 0) {
@@ -587,7 +607,7 @@ class BubbleRhythmAudioEngine {
         osc.start(t);
         osc.stop(t + 3.0);
       });
-    } catch (e) {}
+    } catch (e) { }
   }
 
   startRhythm(preset = 'calm', onBeatCallback = null) {
@@ -670,7 +690,7 @@ class ZenGardenAudioEngine {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+      this.ctx.resume().catch(() => { });
     }
   }
 
@@ -852,7 +872,7 @@ class ZenGardenAudioEngine {
     noise.stop(now + 0.085);
   }
 
-  dispose() {}
+  dispose() { }
 }
 
 const zenAudioService = new ZenGardenAudioEngine();
@@ -1117,18 +1137,85 @@ function evaluateEarlyStressSignals(appState, recentCheckIns = []) {
   };
 }
 
+/**
+ * Calculates the Wellbeing Index (0-100) based strictly on the user's most recent check-in.
+ * 
+ * Plain-English Formula Explanation:
+ * - Mood (1-5): Adds up to 25 points. Higher mood raises the score.
+ * - Energy (1-5): Adds up to 25 points. Higher energy raises the score.
+ * - Sleep (0-14 hrs): Adds up to 20 points. Getting 7-8 hours yields full points.
+ * - Stress (1-5): Lower stress adds up to 15 points. High stress lowers the score.
+ * - Workload (1-5): Manageable workload adds up to 15 points. Heavy workload lowers the score.
+ * Total points possible = 100.
+ * 
+ * Returns null if no check-in entries exist yet.
+ */
 function calculateWellbeingIndex(appState) {
-  const signalData = evaluateEarlyStressSignals(appState);
+  const checkIns = appState?.dailyCheckIns || [];
+  if (!checkIns || checkIns.length === 0) {
+    return {
+      hasCheckIns: false,
+      score: null,
+      statusTitle: 'Awaiting Check-in',
+      statusLevel: 'pending',
+      summary: 'Do your first check-in'
+    };
+  }
+
+  // Use the single most recent check-in entry
+  const latest = checkIns[0];
+
+  const mood = Number(latest.mood) || 3;
+  const energy = Number(latest.energy) || 3;
+  const stress = Number(latest.stress) || 3;
+  const workload = Number(latest.workload) || 3;
+  const sleep = Number(latest.sleep) !== undefined ? Number(latest.sleep) : 7;
+
+  // 1. Mood points: 1 to 5 maps to 0 to 25 points
+  const moodScore = ((mood - 1) / 4) * 25;
+
+  // 2. Energy points: 1 to 5 maps to 0 to 25 points
+  const energyScore = ((energy - 1) / 4) * 25;
+
+  // 3. Sleep points: Up to 20 points (optimal 7 to 9 hours)
+  let sleepScore = 0;
+  if (sleep >= 7 && sleep <= 9) {
+    sleepScore = 20;
+  } else if (sleep < 7) {
+    sleepScore = Math.max(0, (sleep / 7) * 20);
+  } else {
+    sleepScore = Math.max(5, 20 - (sleep - 9) * 3);
+  }
+
+  // 4. Stress points: Inverted so lower stress gives more points (up to 15)
+  const stressScore = ((5 - stress) / 4) * 15;
+
+  // 5. Workload points: Inverted so lighter workload gives more points (up to 15)
+  const workloadScore = ((5 - workload) / 4) * 15;
+
+  const totalScore = Math.round(moodScore + energyScore + sleepScore + stressScore + workloadScore);
+  const clampedScore = Math.max(0, Math.min(100, totalScore));
+
+  let statusTitle = 'Balanced & Steady';
+  let statusLevel = 'calm';
+  if (clampedScore >= 75) {
+    statusTitle = 'Thriving & High Energy';
+    statusLevel = 'calm';
+  } else if (clampedScore < 50) {
+    statusTitle = 'Elevated Pressure & Fatigue';
+    statusLevel = 'demanding';
+  } else if (clampedScore < 65) {
+    statusTitle = 'Moderate Strain';
+    statusLevel = 'elevated';
+  }
+
   return {
-    score: signalData.score,
-    statusLevel: signalData.statusLevel,
-    statusTitle: signalData.statusTitle,
-    badgeClass: signalData.badgeClass,
-    advice: signalData.tacticalAdvice,
-    gentleNudge: signalData.gentleNudge,
-    todayDistractionMinutes: signalData.todayDistractionMinutes,
-    distractionGoalMinutes: signalData.distractionGoalMinutes,
-    distractionStressCorrelation: signalData.distractionStressCorrelation
+    hasCheckIns: true,
+    score: clampedScore,
+    statusTitle,
+    statusLevel,
+    summary: `Mood ${mood}/5 • Energy ${energy}/5 • Stress ${stress}/5`,
+    latestEntry: latest
   };
 }
 
@@ -1157,7 +1244,7 @@ function generateAIInsights(appState) {
       catCounts[d.category] = (catCounts[d.category] || 0) + 1;
     });
     const topCategory = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
-    
+
     if (topCategory) {
       insights.push({
         icon: 'target',
@@ -1202,7 +1289,7 @@ function generateAIInsights(appState) {
 
   if (failureLogs.length >= 2) {
     const reasons = failureLogs.map(f => f.reason);
-    const mostCommon = reasons.sort((a,b) => reasons.filter(v => v===a).length - reasons.filter(v => v===b).length).pop();
+    const mostCommon = reasons.sort((a, b) => reasons.filter(v => v === a).length - reasons.filter(v => v === b).length).pop();
     insights.push({
       icon: 'compass',
       title: 'Habit Obstacle Pattern',
@@ -1352,13 +1439,116 @@ function calculateFrictionForecast(appState) {
 }
 
 // ==========================================================================
+// TENSION RATING PROMPT MODAL (1-5 SCALE)
+// ==========================================================================
+function TensionRatingModal({
+  isOpen,
+  step = 'before', // 'before' | 'after'
+  resetType = 'Mindful Reset',
+  onSelect,
+  onSkip,
+  onCancel
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [isOpen, step]);
+
+  if (!isOpen) return null;
+
+  const levels = [
+    { val: 1, label: '1', name: 'Calm', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400' },
+    { val: 2, label: '2', name: 'Mild', badge: 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100 hover:border-teal-400' },
+    { val: 3, label: '3', name: 'Moderate', badge: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 hover:border-amber-400' },
+    { val: 4, label: '4', name: 'Tense', badge: 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 hover:border-orange-400' },
+    { val: 5, label: '5', name: 'Very Tense', badge: 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100 hover:border-rose-400' }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-6 animate-scale-up">
+        {/* Header Tag */}
+        <div className="flex items-center justify-between">
+          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#e8f3ed] text-[#1b4332] border border-[#1b4332]/20">
+            {step === 'before' ? 'Before you begin' : 'Reset Complete'}
+          </span>
+          <span className="text-xs font-bold text-slate-500 truncate max-w-[180px]">
+            {resetType}
+          </span>
+        </div>
+
+        {/* Question Title */}
+        <div className="space-y-1.5">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+            How tense are you right now? 1-5
+          </h2>
+          <p className="text-xs text-slate-500">
+            {step === 'before'
+              ? 'Check in before starting your session'
+              : 'Check in after your session to track what helped'}
+          </p>
+        </div>
+
+        {/* 5-Button Rating Strip */}
+        <div className="grid grid-cols-5 gap-2 pt-1">
+          {levels.map((lvl) => (
+            <button
+              key={lvl.val}
+              type="button"
+              onClick={() => onSelect(lvl.val)}
+              className={`p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-sm ${lvl.badge}`}
+            >
+              <span className="text-xl sm:text-2xl font-black">{lvl.label}</span>
+              <span className="text-[10px] font-bold leading-tight">{lvl.name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer with Skip Link & Cancel Option */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+          {step === 'before' && onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-slate-400 hover:text-slate-700 font-medium transition-colors"
+            >
+              Exit
+            </button>
+          ) : (
+            <span></span>
+          )}
+
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-slate-400 hover:text-slate-700 underline font-medium transition-colors cursor-pointer"
+          >
+            Skip
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
 // MAIN APPLICATION COMPONENT
 // ==========================================================================
 
 function App() {
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) { }
+    return null;
+  });
+
   const [appState, setAppState] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
+      const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+      const key = savedUser?.id ? `coach_app_state_${savedUser.id}_v3` : STORAGE_KEY;
+      const saved = localStorage.getItem(key) || localStorage.getItem(STORAGE_KEY);
       if (saved) return sanitizeLoadedState(JSON.parse(saved));
     } catch (e) {
       console.warn('State load error:', e);
@@ -1366,22 +1556,37 @@ function App() {
     return DEFAULT_INITIAL_STATE;
   });
 
-  const [user, setUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem(USER_STORAGE_KEY);
-      if (savedUser) return JSON.parse(savedUser);
-    } catch (e) {}
-    return null;
-  });
-
   const [googleClientId, setGoogleClientId] = useState(() => {
     return localStorage.getItem(GOOGLE_CLIENT_ID_KEY) || DEFAULT_GOOGLE_CLIENT_ID;
   });
 
-  const [checkInStatus, setCheckInStatus] = useState({
-    hasCheckedInToday: false,
-    todayCheckIn: null
+  const [checkInStatus, setCheckInStatus] = useState(() => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
+      const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+      const key = savedUser?.id ? `coach_app_state_${savedUser.id}_v3` : STORAGE_KEY;
+      const saved = localStorage.getItem(key) || localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        const checkIns = state?.dailyCheckIns || [];
+        const today = checkIns.find(c => (c.date || c.checkInDate) === todayStr);
+        if (today) return { hasCheckedInToday: true, todayCheckIn: today };
+      }
+    } catch (e) { }
+    return { hasCheckedInToday: false, todayCheckIn: null };
   });
+
+  // Keep checkInStatus in sync whenever appState.dailyCheckIns changes
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const checkIns = appState?.dailyCheckIns || [];
+    const todayEntry = checkIns.find(c => (c.date || c.checkInDate) === todayStr);
+    setCheckInStatus({
+      hasCheckedInToday: !!todayEntry,
+      todayCheckIn: todayEntry || null
+    });
+  }, [appState.dailyCheckIns]);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
@@ -1408,7 +1613,7 @@ function App() {
               profile: { ...DEFAULT_PROFILE, isCompleted: false }
             }));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 2. Habits from PostgreSQL
@@ -1436,7 +1641,7 @@ function App() {
               }))
             }));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 3. Daily check-in status & history
@@ -1449,7 +1654,7 @@ function App() {
               todayCheckIn: statusRes.todayCheckIn || null
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (window.api.getRecentCheckIns) {
@@ -1459,7 +1664,7 @@ function App() {
             ...prev,
             dailyCheckIns: (recentRes && Array.isArray(recentRes.checkIns)) ? recentRes.checkIns : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 4. Distractions
@@ -1470,7 +1675,7 @@ function App() {
             ...prev,
             distractions: (distRes && Array.isArray(distRes.distractions)) ? distRes.distractions : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 5. Focus Sessions
@@ -1481,7 +1686,7 @@ function App() {
             ...prev,
             focusSessions: (focusRes && Array.isArray(focusRes.sessions)) ? focusRes.sessions : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 6. Preferences
@@ -1496,7 +1701,7 @@ function App() {
               distractionGoalMinutes: Number(prefRes.preferences.daily_distraction_goal_minutes) || prev.distractionGoalMinutes || 45
             }));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 7. Mini Game Sessions
@@ -1507,7 +1712,7 @@ function App() {
             ...prev,
             gameSessions: (gameRes && Array.isArray(gameRes.sessions)) ? gameRes.sessions : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 8. Upcoming Pressure Events
@@ -1518,17 +1723,17 @@ function App() {
             ...prev,
             upcomingPressures: (pressRes && Array.isArray(pressRes.pressureEvents))
               ? pressRes.pressureEvents.map(p => ({
-                  id: p.id,
-                  title: p.title,
-                  eventType: p.event_type || 'Exams',
-                  startDate: p.start_date,
-                  endDate: p.end_date,
-                  notes: p.notes,
-                  isActive: true
-                }))
+                id: p.id,
+                title: p.title,
+                eventType: p.event_type || 'Exams',
+                startDate: p.start_date,
+                endDate: p.end_date,
+                notes: p.notes,
+                isActive: true
+              }))
               : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 9. Failure Logs
@@ -1539,16 +1744,16 @@ function App() {
             ...prev,
             failureLogs: (failRes && Array.isArray(failRes.failures))
               ? failRes.failures.map(f => ({
-                  id: f.id,
-                  habitId: f.habit_id,
-                  habitTitle: f.habit_id ? 'Habit #' + f.habit_id : 'Habit',
-                  timestamp: new Date(f.logged_at).getTime(),
-                  reason: f.reason,
-                  note: f.note
-                }))
+                id: f.id,
+                habitId: f.habit_id,
+                habitTitle: f.habit_id ? 'Habit #' + f.habit_id : 'Habit',
+                timestamp: new Date(f.logged_at).getTime(),
+                reason: f.reason,
+                note: f.note
+              }))
               : []
           }));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 10. Goals
@@ -1567,7 +1772,7 @@ function App() {
               }))
             }));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 11. AI Stress Prediction & Personalized Well-Being Recommendations
@@ -1577,7 +1782,7 @@ function App() {
           if (recRes && recRes.recommendations) {
             setWellbeingRecommendations(recRes);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (err) {
       console.warn('Error loading server data:', err);
@@ -1602,7 +1807,7 @@ function App() {
         .catch(() => {
           if (!cancelled) {
             setUser(null);
-            try { localStorage.removeItem(USER_STORAGE_KEY); } catch (e) {}
+            try { localStorage.removeItem(USER_STORAGE_KEY); } catch (e) { }
           }
         });
     }
@@ -1616,19 +1821,20 @@ function App() {
     }
   }, [user, currentView]);
 
-  // Save state
+  // Save state (user-isolated so multiple accounts never share data)
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-    } catch (e) {}
-  }, [appState]);
+      const storageKey = user?.id ? `coach_app_state_${user.id}_v3` : STORAGE_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(appState));
+    } catch (e) { }
+  }, [appState, user]);
 
   // Save User
   useEffect(() => {
     try {
       if (user) localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
       else localStorage.removeItem(USER_STORAGE_KEY);
-    } catch (e) {}
+    } catch (e) { }
   }, [user]);
 
   // Apply Theme
@@ -1646,14 +1852,70 @@ function App() {
     else audioService.stopAmbient();
   }, [appState.ambientSound, appState.soundEnabled]);
 
-  // View States
-  const [currentView, setCurrentView] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem(USER_STORAGE_KEY);
-      if (savedUser) return 'dashboard';
-    } catch (e) {}
-    return appState.profile?.isCompleted ? 'dashboard' : 'landing';
+  // --- PREDICTABLE NAVIGATION & ROUTER INTEGRATION ---
+  const router = window.BreathlyRouter;
+  const [currentRoute, setCurrentRoute] = useState(() => {
+    if (router) {
+      return router.evaluateRoute(router.currentRoute, user, appState.profile);
+    }
+    return appState.profile?.isCompleted ? 'home' : 'welcome';
   });
+
+  useEffect(() => {
+    const handleRouteChange = (e) => {
+      if (e.detail && e.detail.route) {
+        setCurrentRoute(e.detail.route);
+      }
+    };
+    window.addEventListener('breathly-route-change', handleRouteChange);
+    return () => window.removeEventListener('breathly-route-change', handleRouteChange);
+  }, []);
+
+  const navigate = (to, params = {}) => {
+    if (router) {
+      router.navigate(to, params);
+    } else {
+      setCurrentRoute(to);
+    }
+  };
+
+  const goBack = () => {
+    if (router) {
+      router.goBack();
+    } else {
+      setCurrentRoute('home');
+    }
+  };
+
+  const setCurrentView = (v) => {
+    const map = {
+      'landing': 'welcome',
+      'login': 'welcome',
+      'dashboard': 'home',
+      'checkin': 'checkin',
+      'stress': 'insights',
+      'habits': 'home',
+      'breathing': 'reset',
+      'exercise': 'exercise',
+      'distractions': 'distractions',
+      'journal': 'journal',
+      'coach': 'companion',
+      'goals': 'home',
+      'weekly-report': 'insights',
+      'profile': 'profile',
+      'minigames': 'games',
+      'bubble-rhythm': 'bubble-rhythm',
+      'zen-garden': 'zen-garden',
+      'design-preview': 'design-preview'
+    };
+    navigate(map[v] || v);
+  };
+  const currentView = currentRoute;
+
+  // Intervention Sheet State
+  const [isInterventionSheetOpen, setIsInterventionSheetOpen] = useState(false);
+  const [activeSelectedIntervention, setActiveSelectedIntervention] = useState(null);
+  const [activeResetTypeKey, setActiveResetTypeKey] = useState('box');
   const [selectedMiniGameMode, setSelectedMiniGameMode] = useState('rhythm_pop');
 
   // Modals
@@ -1670,15 +1932,101 @@ function App() {
   const [isShieldModeActive, setIsShieldModeActive] = useState(() => !!appState.isShieldModeActive);
   const [activeFocusSession, setActiveFocusSession] = useState(null);
   const [activeQuickReset, setActiveQuickReset] = useState(ACTIVITIES['breathing-426']);
+  const [tensionPrompt, setTensionPrompt] = useState(null); // { isOpen, step: 'before'|'after', resetType, activity, sessionDetails }
+  const [activeResetSession, setActiveResetSession] = useState(null); // { resetType, category, activity, tensionBefore, startTime }
 
   // Active Routine Countdown Timer Session State
   const [activeTimingHabit, setActiveTimingHabit] = useState(null); // { habit, mode: 'full' | 'min' }
   const [unmarkModalHabit, setUnmarkModalHabit] = useState(null);
 
+  // Rough Day / Minimum Mode State (stored per user and per day in appState.minimumModeDate)
+  const [showRoughDayModal, setShowRoughDayModal] = useState(false);
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const isMinimumModeToday = appState.minimumModeDate === todayStr;
+
+  const handleTurnOnMinimumMode = () => {
+    setAppState(prev => ({
+      ...prev,
+      minimumModeDate: todayStr
+    }));
+    setShowRoughDayModal(false);
+    if (window.confetti) window.confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+  };
+
+  const handleTurnOffMinimumMode = () => {
+    setAppState(prev => ({
+      ...prev,
+      minimumModeDate: null
+    }));
+  };
+
+  const handleDismissMinModeSuggestion = () => {
+    setAppState(prev => ({
+      ...prev,
+      dismissedMinModeSuggestionDate: todayStr
+    }));
+  };
+
+  // Automatic suggestion: if user missed 2 days in a row or logged low energy (1-2) in 2 check-ins in a row
+  const showMinModeSuggestion = useMemo(() => {
+    if (isMinimumModeToday) return false;
+    if (appState.dismissedMinModeSuggestionDate === todayStr) return false;
+
+    // Trigger A: Logged low energy (1-2) in 2 check-ins in a row
+    const checkIns = appState.dailyCheckIns || [];
+    if (checkIns.length >= 2) {
+      const e0 = Number(checkIns[0].energy);
+      const e1 = Number(checkIns[1].energy);
+      if (e0 >= 1 && e0 <= 2 && e1 >= 1 && e1 <= 2) {
+        return true;
+      }
+    }
+
+    // Trigger B: User missed 2 days in a row
+    if (appState.lastActiveDate) {
+      const todayMs = new Date(todayStr).getTime();
+      const lastActiveMs = new Date(appState.lastActiveDate).getTime();
+      const diffDays = Math.floor((todayMs - lastActiveMs) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 2) return true;
+    } else if (checkIns.length > 0) {
+      const latestDate = checkIns[0].date || checkIns[0].checkInDate;
+      if (latestDate) {
+        const todayMs = new Date(todayStr).getTime();
+        const latestMs = new Date(latestDate).getTime();
+        const diffDays = Math.floor((todayMs - latestMs) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 2) return true;
+      }
+    }
+
+    // Also trigger if 2 or more failure/skip logs in recent 3 days
+    const recentSkips = (appState.failureLogs || []).filter(f => (Date.now() - (Number(f.timestamp) || 0)) < 72 * 3600 * 1000);
+    if (recentSkips.length >= 2) return true;
+
+    return false;
+  }, [appState.dailyCheckIns, appState.lastActiveDate, appState.dismissedMinModeSuggestionDate, appState.failureLogs, isMinimumModeToday, todayStr]);
+
   const earlySignals = useMemo(() => evaluateEarlyStressSignals(appState, appState.dailyCheckIns), [appState]);
   const wellbeing = useMemo(() => calculateWellbeingIndex(appState), [appState]);
   const insights = useMemo(() => generateAIInsights(appState), [appState]);
   const frictionForecast = useMemo(() => calculateFrictionForecast(appState), [appState]);
+  const consistency = useMemo(() => {
+    if (typeof calculateConsistency === 'function') {
+      return calculateConsistency(appState, todayStr);
+    }
+    return {
+      hasData: false,
+      isEmpty: true,
+      displayScore: 'Add a habit to start',
+      consistencyRatio: 'Add a habit to start',
+      effectiveCount: 0,
+      completedDaysCount: 0,
+      graceDaysUsed: 0,
+      graceDaysLeft: 2,
+      consistencyPercent: 0,
+      statusText: 'Add a habit to start',
+      days: []
+    };
+  }, [appState, todayStr]);
 
   const isHighStressState = useMemo(() => {
     const isDemandingSignal = earlySignals.statusLevel === 'elevated' || earlySignals.statusLevel === 'demanding' || (earlySignals.score && earlySignals.score < 65);
@@ -1714,27 +2062,61 @@ function App() {
 
   // --- MINI GAME ACTION HANDLER ---
   const handleSaveGameSession = async (sessionData) => {
-    const newSession = {
+    const rawType = sessionData.resetType || sessionData.gameName || 'Bubble Rhythm';
+    const canonicalType = (typeof normalizeResetType === 'function') ? normalizeResetType(rawType) : rawType;
+    const tensionBefore = (typeof sessionData.tensionBefore === 'number' && sessionData.tensionBefore >= 1 && sessionData.tensionBefore <= 5) ? sessionData.tensionBefore : null;
+    const tensionAfter = (typeof sessionData.tensionAfter === 'number' && sessionData.tensionAfter >= 1 && sessionData.tensionAfter <= 5) ? sessionData.tensionAfter : null;
+    const durationSec = Number(sessionData.durationSeconds) || 120;
+
+    const newResetRecord = {
+      id: 'session-' + Date.now(),
+      userId: user?.id || sessionData.userId || 'local',
+      dateTime: sessionData.dateTime || new Date().toISOString(),
+      resetType: canonicalType,
+      category: 'game',
+      tensionBefore,
+      tensionAfter,
+      durationSec,
+      details: {
+        gameMode: sessionData.gameMode,
+        bubblesPopped: sessionData.bubblesPopped,
+        feeling: sessionData.feeling,
+        enjoyment: sessionData.enjoyment
+      }
+    };
+
+    const newGameSession = {
       id: 'game-' + Date.now(),
-      game_name: sessionData.gameName || 'Bubble Rhythm',
+      game_name: sessionData.gameName || canonicalType,
       game_mode: sessionData.gameMode || 'rhythm_pop',
       rhythm_preset: sessionData.rhythmPreset || null,
-      duration_seconds: Number(sessionData.durationSeconds) || 0,
+      duration_seconds: durationSec,
       bubbles_popped: Number(sessionData.bubblesPopped) || 0,
       completed: true,
+      tensionBefore,
+      tensionAfter,
       feeling: sessionData.feeling || null,
       enjoyment: sessionData.enjoyment || null,
-      played_at: new Date().toISOString()
+      played_at: newResetRecord.dateTime
     };
 
     setAppState(prev => ({
       ...prev,
-      gameSessions: [newSession, ...(prev.gameSessions || [])]
+      resetSessions: [newResetRecord, ...(prev.resetSessions || [])],
+      gameSessions: [newGameSession, ...(prev.gameSessions || [])]
     }));
+
+    if (tensionBefore !== null && tensionAfter !== null && tensionBefore > tensionAfter) {
+      if (window.confetti) window.confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+    }
 
     if (user && window.api?.saveGameSession) {
       try {
-        await window.api.saveGameSession(sessionData);
+        await window.api.saveGameSession({
+          ...sessionData,
+          tensionBefore,
+          tensionAfter
+        });
       } catch (err) {
         console.warn('Sync game session error:', err);
       }
@@ -1883,12 +2265,12 @@ function App() {
   const handleSignOut = () => {
     // 1. Immediately reset Google auth
     if (window.google?.accounts?.id) {
-      try { window.google.accounts.id.disableAutoSelect(); } catch (e) {}
+      try { window.google.accounts.id.disableAutoSelect(); } catch (e) { }
     }
 
     // 2. Fire backend session logout in background (non-blocking)
     if (window.api?.logout) {
-      window.api.logout().catch(() => {});
+      window.api.logout().catch(() => { });
     }
 
     // 3. Clear user & storage immediately
@@ -1896,7 +2278,7 @@ function App() {
     try {
       localStorage.removeItem(USER_STORAGE_KEY);
       localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {}
+    } catch (e) { }
 
     // 4. Reset app state back to clean initial state
     setAppState(DEFAULT_INITIAL_STATE);
@@ -1924,7 +2306,7 @@ function App() {
   };
 
   // --- HABIT ACTION HANDLERS (LAUNCHES COUNTDOWN TIMER & ENCOURAGEMENT) ---
-  const handleToggleHabit = (habitId, mode = 'full') => {
+  const handleToggleHabit = (habitId, mode = (isMinimumModeToday ? 'min' : 'full')) => {
     const habit = appState.habits.find(h => h.id === habitId);
     if (!habit) return;
 
@@ -1964,7 +2346,25 @@ function App() {
         };
       });
 
-      return { ...prev, habits: updated };
+      // Update habitHistory for consistency tracking
+      const isRoughDay = prev.minimumModeDate === todayStr || mode === 'min';
+      const existingToday = prev.habitHistory?.[todayStr] || {};
+      const updatedHistory = {
+        ...(prev.habitHistory || {}),
+        [todayStr]: {
+          completed: true,
+          isRoughDay: isRoughDay || !!existingToday.isRoughDay,
+          completedCount: (existingToday.completedCount || 0) + 1,
+          lastCompletedAt: Date.now()
+        }
+      };
+
+      return {
+        ...prev,
+        habits: updated,
+        habitHistory: updatedHistory,
+        lastActiveDate: todayStr
+      };
     });
 
     if (window.confetti) {
@@ -1986,9 +2386,8 @@ function App() {
   };
 
   const handleUnmarkHabit = (habitId) => {
-    setAppState(prev => ({
-      ...prev,
-      habits: prev.habits.map(h => {
+    setAppState(prev => {
+      const updatedHabits = prev.habits.map(h => {
         if (h.id !== habitId) return h;
         return {
           ...h,
@@ -1996,8 +2395,20 @@ function App() {
           currentStreak: Math.max(0, (h.currentStreak || 1) - 1),
           todayCompletedAt: null
         };
-      })
-    }));
+      });
+
+      const anyCompletedToday = updatedHabits.some(h => h.todayStatus === 'full' || h.todayStatus === 'min');
+      const updatedHistory = { ...(prev.habitHistory || {}) };
+      if (!anyCompletedToday && updatedHistory[todayStr]) {
+        delete updatedHistory[todayStr];
+      }
+
+      return {
+        ...prev,
+        habits: updatedHabits,
+        habitHistory: updatedHistory
+      };
+    });
     setUnmarkModalHabit(null);
   };
 
@@ -2090,20 +2501,37 @@ function App() {
     }
   };
 
-  // --- DAILY MONITORING CHECK-IN HANDLER (1-3 CONTEXTUAL QUESTIONS) ---
+  // --- 20-SECOND DAILY CHECK-IN HANDLER (1 ENTRY PER DAY PER USER) ---
   const handleSaveDailyCheckIn = async (checkInData) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const userId = user?.id || 'guest';
+
+    // Exact fields requested: user id, date, mood, energy, stress, workload, sleep
     const newEntry = {
-      id: 'checkin-' + Date.now(),
-      checkInDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      ...checkInData
+      id: checkInData.id || ('checkin-' + Date.now()),
+      userId: userId,
+      date: todayStr,
+      checkInDate: todayStr, // backward compatibility
+      mood: Number(checkInData.mood) || 3,
+      energy: Number(checkInData.energy) || 3,
+      stress: Number(checkInData.stress) || 3,
+      workload: Number(checkInData.workload) || 3,
+      sleep: Number(checkInData.sleep) !== undefined ? Number(checkInData.sleep) : 7,
+      createdAt: checkInData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    setAppState(prev => ({
-      ...prev,
-      dailyCheckIns: [newEntry, ...prev.dailyCheckIns],
-      lastCheckInDate: new Date().toISOString().split('T')[0]
-    }));
+    setAppState(prev => {
+      const existingList = Array.isArray(prev.dailyCheckIns) ? prev.dailyCheckIns : [];
+      // Remove any existing entry for today so editing updates today's entry instead of creating duplicates
+      const withoutToday = existingList.filter(c => (c.date || c.checkInDate) !== todayStr);
+      return {
+        ...prev,
+        dailyCheckIns: [newEntry, ...withoutToday],
+        lastCheckInDate: todayStr,
+        lastActiveDate: todayStr
+      };
+    });
 
     setCheckInStatus({
       hasCheckedInToday: true,
@@ -2112,8 +2540,14 @@ function App() {
 
     if (user && window.api?.logDailyCheckIn) {
       try {
-        await window.api.logDailyCheckIn(checkInData);
-        // Refresh personalized recommendations and stress prediction with fresh check-in data
+        await window.api.logDailyCheckIn({
+          ...newEntry,
+          timeOfDay: new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening',
+          overallFeeling: `Mood ${newEntry.mood}/5`,
+          workloadRating: `Workload ${newEntry.workload}/5`,
+          sleepQuality: `${newEntry.sleep}h`,
+          stressRating: newEntry.stress
+        });
         if (window.api?.getRecommendations) {
           const updatedRecs = await window.api.getRecommendations();
           if (updatedRecs) setWellbeingRecommendations(updatedRecs);
@@ -2195,38 +2629,79 @@ function App() {
     setShowPressureModal(false);
   };
 
-  // Launch Quick Reset
+  // Launch Quick Reset with pre-session tension check
   const startQuickReset = (activity = ACTIVITIES['breathing-426']) => {
+    const act = activity || ACTIVITIES['breathing-426'];
+    const rType = (typeof normalizeResetType === 'function') ? normalizeResetType(act.title || act.id) : (act.title || 'Breathing Reset');
     audioService.init();
-    setActiveQuickReset(activity || ACTIVITIES['breathing-426']);
+    setActiveQuickReset(act);
+    setTensionPrompt({
+      isOpen: true,
+      step: 'before',
+      resetType: rType,
+      activity: act,
+      category: 'breathing'
+    });
+  };
+
+  const handlePreTensionSelect = (rating) => {
+    const val = (typeof rating === 'number') ? rating : null;
+    const rType = tensionPrompt?.resetType || ((typeof normalizeResetType === 'function') ? normalizeResetType(activeQuickReset?.title) : 'Breathing Reset');
+    setActiveResetSession({
+      resetType: rType,
+      category: 'breathing',
+      activity: activeQuickReset,
+      tensionBefore: val,
+      startTime: Date.now()
+    });
+    setTensionPrompt(null);
     setCurrentView('exercise');
   };
 
   const handleExerciseComplete = (sessionDetails) => {
-    const newReset = {
-      id: 'reset-' + Date.now(),
-      timestamp: Date.now(),
-      feeling: 'Restored',
-      feelingEmoji: '🫁',
-      trigger: 'Adaptive Coach Reset',
-      activityId: activeQuickReset.id,
-      activityTitle: activeQuickReset.title,
-      stressBefore: 7,
-      stressAfter: 3,
-      rating: 'Much better',
-      durationSec: sessionDetails?.durationSec || activeQuickReset.duration
+    const rType = activeResetSession?.resetType || ((typeof normalizeResetType === 'function') ? normalizeResetType(activeQuickReset?.title) : 'Breathing Reset');
+    setTensionPrompt({
+      isOpen: true,
+      step: 'after',
+      resetType: rType,
+      category: 'breathing',
+      sessionDetails: sessionDetails || { durationSec: activeQuickReset?.duration || 60 }
+    });
+  };
+
+  const handlePostTensionSelect = (rating) => {
+    const tensionAfter = (typeof rating === 'number') ? rating : null;
+    const tensionBefore = activeResetSession?.tensionBefore ?? null;
+    const rType = tensionPrompt?.resetType || activeResetSession?.resetType || ((typeof normalizeResetType === 'function') ? normalizeResetType(activeQuickReset?.title) : 'Breathing Reset');
+    const durationSec = tensionPrompt?.sessionDetails?.durationSec || activeQuickReset?.duration || 60;
+
+    const newResetRecord = {
+      id: 'session-' + Date.now(),
+      userId: user?.id || 'local',
+      dateTime: new Date().toISOString(),
+      resetType: rType,
+      category: 'breathing',
+      tensionBefore,
+      tensionAfter,
+      durationSec
     };
 
     setAppState(prev => ({
       ...prev,
-      resetsHistory: [newReset, ...prev.resetsHistory]
+      resetSessions: [newResetRecord, ...(prev.resetSessions || [])],
+      resetsHistory: [newResetRecord, ...(prev.resetsHistory || [])]
     }));
 
     if (user && window.api?.createBreathingSession) {
-      window.api.createBreathingSession(activeQuickReset.title, newReset.durationSec).catch(console.warn);
+      window.api.createBreathingSession(rType, durationSec).catch(console.warn);
     }
 
-    if (window.confetti) window.confetti({ particleCount: 45, spread: 70, origin: { y: 0.6 } });
+    if (tensionBefore !== null && tensionAfter !== null && tensionBefore > tensionAfter) {
+      if (window.confetti) window.confetti({ particleCount: 45, spread: 70, origin: { y: 0.6 } });
+    }
+
+    setTensionPrompt(null);
+    setActiveResetSession(null);
     setCurrentView('dashboard');
   };
 
@@ -2312,7 +2787,7 @@ function App() {
                   todayCompletedAt: null
                 });
               }
-            } catch (e) {}
+            } catch (e) { }
           }
           if (createdHabits.length > 0) {
             initialHabits = createdHabits;
@@ -2358,64 +2833,166 @@ function App() {
     if (appState.soundEnabled) audioService.playChime('hold');
   };
 
+  // --- REDESIGN INTEGRATION HANDLERS ---
+  const handleSaveJournalEntry = async (content, mood) => {
+    const newEntry = {
+      id: 'journal-' + Date.now(),
+      date: new Date().toISOString(),
+      content,
+      mood: mood || 'Calm'
+    };
+    setAppState(prev => ({
+      ...prev,
+      journalEntries: [newEntry, ...(prev.journalEntries || [])]
+    }));
+    if (user && window.api?.saveJournalEntry) {
+      try {
+        await window.api.saveJournalEntry(content, mood);
+      } catch (e) { console.warn(e); }
+    }
+    if (window.BreathlyUI?.toast) {
+      window.BreathlyUI.toast.success('Journal reflection saved.');
+    }
+  };
+
+  const handleBreathingComplete = async ({ durationSec, feeling }) => {
+    const rType = activeResetTypeKey || 'box';
+    const newResetRecord = {
+      id: 'session-' + Date.now(),
+      userId: user?.id || 'local',
+      dateTime: new Date().toISOString(),
+      resetType: rType,
+      category: 'breathing',
+      feeling,
+      durationSec: durationSec || 60
+    };
+    setAppState(prev => ({
+      ...prev,
+      resetSessions: [newResetRecord, ...(prev.resetSessions || [])],
+      resetsHistory: [newResetRecord, ...(prev.resetsHistory || [])]
+    }));
+    if (user && window.api?.createBreathingSession) {
+      try {
+        await window.api.createBreathingSession(rType, durationSec || 60);
+      } catch (e) { console.warn(e); }
+    }
+    if (user && window.api?.submitFeedback) {
+      try {
+        await window.api.submitFeedback({ type: 'breathing', feeling, exercise: rType });
+      } catch (e) { console.warn(e); }
+    }
+    if (window.BreathlyUI?.toast) {
+      window.BreathlyUI.toast.success('Reset completed. Great job checking in.');
+    }
+    goBack();
+  };
+
+  const handleGameComplete = async (gameData) => {
+    handleSaveGameSession(gameData);
+    if (window.BreathlyUI?.toast) {
+      window.BreathlyUI.toast.success('Mindful session recorded.');
+    }
+    goBack();
+  };
+
+  const handleSaveInterventionFeedback = async (feedbackData) => {
+    await handleCompleteIntervention({
+      interventionType: activeSelectedIntervention?.type || 'reset',
+      feelingFeedback: feedbackData.feeling,
+      notes: feedbackData.notes || '',
+      interventionTitle: activeSelectedIntervention?.title || feedbackData.title
+    });
+    if (window.BreathlyUI?.toast) {
+      window.BreathlyUI.toast.success('Thank you for checking in with your reset.');
+    }
+  };
+
+  const handleUpdatePreferences = async (newPrefs) => {
+    setAppState(prev => ({
+      ...prev,
+      soundEnabled: newPrefs.soundEnabled !== undefined ? newPrefs.soundEnabled : prev.soundEnabled,
+      distractionGoalMinutes: newPrefs.distractionGoalMinutes || prev.distractionGoalMinutes
+    }));
+    if (user && window.api?.updatePreferences) {
+      try {
+        await window.api.updatePreferences(
+          appState.theme,
+          newPrefs.soundEnabled !== undefined ? newPrefs.soundEnabled : appState.soundEnabled,
+          newPrefs.distractionGoalMinutes || appState.distractionGoalMinutes
+        );
+      } catch (e) { console.warn(e); }
+    }
+  };
+
+  const handleWipeData = () => {
+    localStorage.clear();
+    setAppState(DEFAULT_INITIAL_STATE);
+    navigate('welcome');
+    window.location.reload();
+  };
+
+  const ErrorBoundaryComp = window.BreathlyUI?.ErrorBoundary || React.Fragment;
+  const AppShellComp = window.BreathlyUI?.AppShell;
+  const InsightsComp = window.BreathlyUI?.InsightsPage;
+  const JournalComp = window.BreathlyUI?.JournalPage;
+  const ProfileSettingsComp = window.BreathlyUI?.ProfileSettingsPage;
+  const CompanionComp = window.BreathlyUI?.CompanionPage;
+  const BubbleRhythmComp = window.BreathlyUI?.BubbleRhythmPage;
+  const BreathingPlayerComp = window.BreathlyUI?.BreathingPlayerPage;
+  const InterventionSheetComp = window.BreathlyUI?.InterventionSheet;
+  const NotFoundComp = window.BreathlyUI?.NotFoundPage;
+
+  // Phase 3: Redesigned Welcome Screen for Unauthenticated Visitors
+  if (currentRoute === 'welcome' || (!user && currentRoute !== 'onboarding' && currentRoute !== 'login')) {
+    const WelcomeComp = window.BreathlyUI?.WelcomePage;
+    if (WelcomeComp) {
+      return (
+        <ErrorBoundaryComp>
+          <WelcomeComp
+            onStartJourney={() => navigate('onboarding')}
+            onGoogleSignIn={() => navigate('login')}
+            onContinueAsGuest={() => {
+              navigate(appState.profile?.isCompleted ? 'home' : 'onboarding');
+            }}
+            onQuickReset={() => {
+              setActiveResetTypeKey('sigh');
+              navigate('exercise');
+            }}
+          />
+        </ErrorBoundaryComp>
+      );
+    }
+  }
+
+  // Phase 3: Redesigned Onboarding Step-by-Step Flow
+  if (currentRoute === 'onboarding') {
+    const OnboardingComp = window.BreathlyUI?.OnboardingPage;
+    if (OnboardingComp) {
+      return (
+        <ErrorBoundaryComp>
+          <OnboardingComp
+            initialProfile={appState.profile}
+            onComplete={handleCompleteOnboarding}
+            onCancel={() => navigate(user ? 'home' : 'welcome')}
+          />
+        </ErrorBoundaryComp>
+      );
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-[#f7f8f6] text-[#18201d] flex flex-col relative selection:bg-[#e8f3ed] selection:text-[#1b4332]">
-      {/* Fixed Left Sidebar on Desktop */}
-      <SidebarNav
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        user={user}
-        onSignOut={handleSignOut}
-        onGoToLogin={() => setCurrentView('login')}
-        onOpenSettings={() => setCurrentView('profile')}
-        onOpenSafety={() => setShowSafetyModal(true)}
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
-        onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
-        isShieldModeActive={isShieldModeActive}
-        onToggleShieldMode={handleToggleShieldMode}
-        earlySignals={earlySignals}
-      />
-
-      {/* Main Content Area Offset for Desktop Sidebar */}
-      <div className="md:pl-64 flex-1 flex flex-col min-h-screen">
-        <TopHeaderBar
-          currentView={currentView}
-          setCurrentView={setCurrentView}
+    <ErrorBoundaryComp>
+      {AppShellComp ? (
+        <AppShellComp
+          currentRoute={currentRoute}
+          onNavigate={navigate}
+          onGoBack={goBack}
+          canGoBack={router?.canGoBack ? router.canGoBack() : false}
+          isImmersive={router?.isImmersive ? router.isImmersive() : false}
           user={user}
-          onGoToLogin={() => setCurrentView('login')}
-          onQuickReset={() => startQuickReset(earlySignals.recommendedActivity || ACTIVITIES['breathing-426'])}
-          onOpenSafety={() => setShowSafetyModal(true)}
-          onOpenSettings={() => setCurrentView('profile')}
-          onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
-          isShieldModeActive={isShieldModeActive}
-          onToggleShieldMode={handleToggleShieldMode}
-          theme={appState.theme}
-          setTheme={handleSetThemeAndMode}
-          soundEnabled={appState.soundEnabled}
-          toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-        />
-
-        {/* Centered Main View Container */}
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 pb-24 md:pb-12 z-10">
-          {currentView === 'landing' && (
-            <LandingView
-              user={user}
-              onStartOnboarding={() => setCurrentView('onboarding')}
-              onDirectDashboard={() => setCurrentView('dashboard')}
-              onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
-              onGoToLogin={() => setCurrentView('login')}
-            />
-          )}
-
-          {currentView === 'onboarding' && (
-            <OnboardingWizard
-              initialProfile={appState.profile}
-              onComplete={handleCompleteOnboarding}
-              onCancel={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
-            />
-          )}
-
-          {currentView === 'dashboard' && (
+          onSignOut={handleSignOut}
+        >
+          {currentRoute === 'home' && (
             <DashboardView
               user={user}
               profile={appState.profile}
@@ -2442,43 +3019,267 @@ function App() {
               onEditHabit={(h) => { setEditingHabit(h); setShowHabitModal(true); }}
               onDeleteHabit={handleDeleteHabit}
               onOpenFailureModal={(habit) => { setActiveFailureHabit(habit); setShowFailureModal(true); }}
-              onQuickReset={startQuickReset}
-              onOpenCoach={() => setCurrentView('coach')}
-              onOpenGoals={() => setCurrentView('goals')}
-              onOpenWeeklyReport={() => setCurrentView('weekly-report')}
-              onOpenDistractions={() => setCurrentView('distractions')}
+              onQuickReset={(act) => { setActiveResetTypeKey(act?.id || 'box'); navigate('exercise'); }}
+              onOpenCoach={() => navigate('companion')}
+              onOpenGoals={() => navigate('home')}
+              onOpenWeeklyReport={() => navigate('insights')}
+              onOpenDistractions={() => navigate('distractions')}
               onOpenMiniGames={(gameKey, mode) => {
                 setSelectedMiniGameMode(mode || (gameKey === 'zen-garden' ? 'zen_balance' : 'rhythm_pop'));
-                setCurrentView(gameKey === 'zen-garden' ? 'zen-garden' : 'bubble-rhythm');
+                navigate(gameKey === 'zen-garden' ? 'zen-garden' : 'bubble-rhythm');
               }}
-              onOpenMiniGamesHub={() => setCurrentView('minigames')}
+              onOpenMiniGamesHub={() => navigate('games')}
               onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
               onAddDistraction={() => setShowAddDistractionModal(true)}
               onAddPressure={() => setShowPressureModal(true)}
               wellbeingRecommendations={wellbeingRecommendations}
-              onStartIntervention={handleStartIntervention}
-              onSignIn={() => setCurrentView('login')}
+              onStartIntervention={(type, title, obj) => {
+                setActiveSelectedIntervention(obj || { type, title, id: 'itv-' + Date.now(), reason: 'Designed to release mental tension.' });
+                setIsInterventionSheetOpen(true);
+              }}
+              onOpenCheckIn={() => navigate('checkin')}
+              onSignIn={() => navigate('welcome')}
+              isMinimumModeToday={isMinimumModeToday}
+              showMinModeSuggestion={showMinModeSuggestion}
+              onOpenRoughDayModal={() => setShowRoughDayModal(true)}
+              onTurnOffMinimumMode={handleTurnOffMinimumMode}
+              onAcceptSuggestion={handleTurnOnMinimumMode}
+              onDismissSuggestion={handleDismissMinModeSuggestion}
+              consistency={consistency}
             />
           )}
 
-          {currentView === 'stress' && (
-            <StressHubView
+          {currentRoute === 'insights' && (
+            InsightsComp ? (
+              <InsightsComp
+                user={user}
+                currentStress={wellbeing}
+                stressTrend={insights}
+                checkIns={appState.dailyCheckIns || []}
+                recommendations={wellbeingRecommendations}
+                onStartRecommendation={(rec) => {
+                  setActiveSelectedIntervention(rec);
+                  setIsInterventionSheetOpen(true);
+                }}
+                onOpenCheckIn={() => navigate('checkin')}
+              />
+            ) : (
+              <WeeklyReportView
+                appState={appState}
+                wellbeing={wellbeing}
+                earlySignals={earlySignals}
+                distractions={appState.distractions}
+                focusSessions={appState.focusSessions}
+                distractionGoalMinutes={appState.distractionGoalMinutes}
+                consistency={consistency}
+                resetSessions={appState.resetSessions || []}
+                onBack={goBack}
+                onQuickReset={() => { setActiveResetTypeKey('box'); navigate('exercise'); }}
+                onOpenDistractions={() => navigate('distractions')}
+              />
+            )
+          )}
+
+          {currentRoute === 'reset' && (
+            <BreathingHubView
+              onQuickReset={(act) => {
+                setActiveResetTypeKey(act?.id || 'box');
+                navigate('exercise');
+              }}
+              soundEnabled={appState.soundEnabled}
+              toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+            />
+          )}
+
+          {currentRoute === 'journal' && (
+            JournalComp ? (
+              <JournalComp
+                entries={appState.journalEntries || []}
+                onSaveEntry={handleSaveJournalEntry}
+              />
+            ) : (
+              <JournalHubView
+                profile={appState.profile}
+                upcomingPressures={appState.upcomingPressures}
+                checkInStatus={checkInStatus}
+                onSaveDailyCheckIn={handleSaveDailyCheckIn}
+                onOpenMiniGames={(gameKey, mode) => {
+                  setSelectedMiniGameMode(mode || 'rhythm_pop');
+                  navigate('bubble-rhythm');
+                }}
+              />
+            )
+          )}
+
+          {currentRoute === 'profile' && (
+            ProfileSettingsComp ? (
+              <ProfileSettingsComp
+                user={user}
+                profile={appState.profile}
+                preferences={{
+                  soundEnabled: appState.soundEnabled,
+                  distractionGoalMinutes: appState.distractionGoalMinutes
+                }}
+                onUpdatePreferences={handleUpdatePreferences}
+                onRetakeOnboarding={() => navigate('onboarding')}
+                onSignOut={handleSignOut}
+                onWipeData={handleWipeData}
+                onBack={goBack}
+              />
+            ) : (
+              <ProfileHubView
+                user={user}
+                profile={appState.profile}
+                theme={appState.theme}
+                setTheme={handleSetThemeAndMode}
+                soundEnabled={appState.soundEnabled}
+                toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+                ambientSound={appState.ambientSound}
+                setAmbientSound={(s) => setAppState(prev => ({ ...prev, ambientSound: s }))}
+                onRedoOnboarding={() => navigate('onboarding')}
+                onClearData={handleWipeData}
+                onSignOut={handleSignOut}
+                onSignIn={() => navigate('welcome')}
+                onOpenSafety={() => setShowSafetyModal(true)}
+                onOpenPrivacy={() => setShowPrivacyModal(true)}
+              />
+            )
+          )}
+
+          {currentRoute === 'companion' && (
+            CompanionComp ? (
+              <CompanionComp
+                onBack={goBack}
+                onSendMessage={async (msg) => {
+                  if (window.api?.chatWithGemini) {
+                    return await window.api.chatWithGemini(msg);
+                  }
+                  return { reply: 'Take a slow, deep breath with me. One gentle step at a time.', isOffline: true };
+                }}
+              />
+            ) : (
+              <CoachView
+                user={user}
+                appState={appState}
+                wellbeing={wellbeing}
+                earlySignals={earlySignals}
+                distractions={appState.distractions}
+                focusSessions={appState.focusSessions}
+                onToggleHabit={handleToggleHabit}
+                onQuickReset={() => { setActiveResetTypeKey('box'); navigate('exercise'); }}
+                onBack={goBack}
+                onOpenDistractions={() => navigate('distractions')}
+                onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); navigate('bubble-rhythm'); }}
+                onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Focused Study Sprint', durationMin: 25 })}
+                onActivateMinModeAll={handleTurnOnMinimumMode}
+              />
+            )
+          )}
+
+          {currentRoute === 'bubble-rhythm' && (
+            BubbleRhythmComp ? (
+              <BubbleRhythmComp
+                onComplete={handleGameComplete}
+                onExit={goBack}
+              />
+            ) : (
+              <BubbleRhythmGame
+                user={user}
+                initialMode={selectedMiniGameMode || 'rhythm_pop'}
+                initialPreset="calm"
+                initialDuration={180}
+                onSaveSession={handleSaveGameSession}
+                onBack={goBack}
+              />
+            )
+          )}
+
+          {currentRoute === 'exercise' && (
+            BreathingPlayerComp ? (
+              <BreathingPlayerComp
+                exerciseKey={activeResetTypeKey || 'box'}
+                onComplete={handleBreathingComplete}
+                onExit={goBack}
+              />
+            ) : (
+              <ExerciseEngine
+                activity={activeQuickReset}
+                onComplete={handleExerciseComplete}
+                onCancel={goBack}
+                soundEnabled={appState.soundEnabled}
+              />
+            )
+          )}
+
+          {currentRoute === 'games' && (
+            <MiniGamesHubView
+              user={user}
+              gameSessions={appState.gameSessions || []}
+              resetSessions={appState.resetSessions || []}
+              isHighStressState={isHighStressState}
+              onLaunchGame={(gameKey, mode) => {
+                if (gameKey === 'zen-garden' || gameKey === 'zen_balance') {
+                  setSelectedMiniGameMode(mode || 'zen_balance');
+                  navigate('zen-garden');
+                } else {
+                  setSelectedMiniGameMode(mode || 'rhythm_pop');
+                  navigate('bubble-rhythm');
+                }
+              }}
+              onBack={goBack}
+              onSignIn={() => navigate('welcome')}
+            />
+          )}
+
+          {currentRoute === 'zen-garden' && (
+            <ZenPebbleGame
+              user={user}
+              initialMode={selectedMiniGameMode || 'zen_balance'}
+              initialDuration={180}
+              onSaveSession={handleSaveGameSession}
+              onBack={() => navigate('games')}
+            />
+          )}
+
+          {currentRoute === 'distractions' && (
+            <DistractionTrackerHubView
+              user={user}
+              distractions={appState.distractions || []}
+              focusSessions={appState.focusSessions || []}
+              distractionGoalMinutes={appState.distractionGoalMinutes || 45}
+              habits={appState.habits || []}
+              wellbeing={wellbeing}
               earlySignals={earlySignals}
-              frictionForecast={frictionForecast}
-              upcomingPressures={appState.upcomingPressures}
-              isShieldModeActive={isShieldModeActive}
-              onToggleShieldMode={handleToggleShieldMode}
-              onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
+              insights={insights}
+              onBack={goBack}
+              onAddDistraction={() => setShowAddDistractionModal(true)}
+              onDeleteDistraction={handleDeleteDistraction}
+              onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
+              onUpdateGoal={handleUpdateDistractionGoal}
               onQuickReset={startQuickReset}
-              onAddPressure={() => setShowPressureModal(true)}
-              onBack={() => setCurrentView('dashboard')}
+              onSignIn={() => navigate('welcome')}
             />
           )}
 
-          {currentView === 'habits' && (
+          {currentRoute === 'checkin' && (
+            <CheckInView
+              user={user}
+              dailyCheckIns={appState.dailyCheckIns || []}
+              onSaveCheckIn={(data) => {
+                handleSaveDailyCheckIn(data);
+                navigate('home');
+              }}
+              onBack={goBack}
+            />
+          )}
+
+          {currentRoute === 'habits' && (
             <HabitsHubView
+              appState={appState}
               habits={appState.habits}
               goals={appState.goals}
+              isMinimumModeToday={isMinimumModeToday}
+              consistency={consistency}
               onToggleHabit={handleToggleHabit}
               onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
               onEditHabit={(h) => { setEditingHabit(h); setShowHabitModal(true); }}
@@ -2489,112 +3290,46 @@ function App() {
             />
           )}
 
-          {currentView === 'breathing' && (
-            <BreathingHubView
-              onQuickReset={startQuickReset}
-              soundEnabled={appState.soundEnabled}
-              toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-            />
-          )}
-
-          {currentView === 'journal' && (
-            <JournalHubView
-              profile={appState.profile}
+          {currentRoute === 'stress' && (
+            <StressHubView
+              earlySignals={earlySignals}
+              frictionForecast={frictionForecast}
               upcomingPressures={appState.upcomingPressures}
-              checkInStatus={checkInStatus}
-              onSaveDailyCheckIn={handleSaveDailyCheckIn}
-              onOpenMiniGames={(gameKey, mode) => {
-                setSelectedMiniGameMode(mode || 'rhythm_pop');
-                setCurrentView('bubble-rhythm');
-              }}
+              isShieldModeActive={isShieldModeActive}
+              onToggleShieldMode={handleToggleShieldMode}
+              onOpenDeEscalator={() => setShowDeEscalatorModal(true)}
+              onQuickReset={startQuickReset}
+              onAddPressure={() => setShowPressureModal(true)}
+              onBack={goBack}
             />
           )}
 
-          {currentView === 'profile' && (
-            <ProfileHubView
-              user={user}
-              profile={appState.profile}
-              theme={appState.theme}
-              setTheme={handleSetThemeAndMode}
-              soundEnabled={appState.soundEnabled}
-              toggleSound={() => setAppState(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-              ambientSound={appState.ambientSound}
-              setAmbientSound={(s) => setAppState(prev => ({ ...prev, ambientSound: s }))}
-              onRedoOnboarding={() => setCurrentView('onboarding')}
-              onClearData={() => {
-                if (confirm('Are you sure you want to clear all local wellbeing logs and habits?')) {
-                  localStorage.clear();
-                  window.location.reload();
-                }
-              }}
-              onSignOut={handleSignOut}
-              onSignIn={() => setCurrentView('login')}
-              onOpenSafety={() => setShowSafetyModal(true)}
-              onOpenPrivacy={() => setShowPrivacyModal(true)}
+          {currentRoute === 'goals' && (
+            <GoalsView
+              goals={appState.goals}
+              habits={appState.habits}
+              onBack={goBack}
+              onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
             />
           )}
 
-          {currentView === 'minigames' && (
-            <MiniGamesHubView
-              user={user}
-              gameSessions={appState.gameSessions || []}
-              isHighStressState={isHighStressState}
-              onLaunchGame={(gameKey, mode) => {
-                if (gameKey === 'zen-garden' || gameKey === 'zen_balance' || gameKey === 'sand_ripple') {
-                  setSelectedMiniGameMode(mode || 'zen_balance');
-                  setCurrentView('zen-garden');
-                } else {
-                  setSelectedMiniGameMode(mode || 'rhythm_pop');
-                  setCurrentView('bubble-rhythm');
-                }
-              }}
-              onBack={() => setCurrentView('dashboard')}
-              onSignIn={() => setCurrentView('login')}
-            />
-          )}
-
-          {currentView === 'bubble-rhythm' && (
-            <BubbleRhythmGame
-              user={user}
-              initialMode={selectedMiniGameMode || 'rhythm_pop'}
-              initialPreset="calm"
-              initialDuration={180}
-              onSaveSession={handleSaveGameSession}
-              onBack={() => setCurrentView('minigames')}
-            />
-          )}
-
-          {currentView === 'zen-garden' && (
-            <ZenPebbleGame
-              user={user}
-              initialMode={selectedMiniGameMode || 'zen_balance'}
-              initialDuration={180}
-              onSaveSession={handleSaveGameSession}
-              onBack={() => setCurrentView('minigames')}
-            />
-          )}
-
-          {currentView === 'distractions' && (
-            <DistractionTrackerHubView
-              user={user}
-              distractions={appState.distractions || []}
-              focusSessions={appState.focusSessions || []}
-              distractionGoalMinutes={appState.distractionGoalMinutes || 45}
-              habits={appState.habits || []}
+          {currentRoute === 'weekly-report' && (
+            <WeeklyReportView
+              appState={appState}
               wellbeing={wellbeing}
               earlySignals={earlySignals}
-              insights={insights}
-              onBack={() => setCurrentView('dashboard')}
-              onAddDistraction={() => setShowAddDistractionModal(true)}
-              onDeleteDistraction={handleDeleteDistraction}
-              onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Deep Focus Study Block', durationMin: 25 })}
-              onUpdateGoal={handleUpdateDistractionGoal}
-              onQuickReset={startQuickReset}
-              onSignIn={() => setCurrentView('login')}
+              distractions={appState.distractions}
+              focusSessions={appState.focusSessions}
+              distractionGoalMinutes={appState.distractionGoalMinutes}
+              consistency={consistency}
+              resetSessions={appState.resetSessions || []}
+              onBack={goBack}
+              onQuickReset={() => { setActiveResetTypeKey('box'); navigate('exercise'); }}
+              onOpenDistractions={() => navigate('distractions')}
             />
           )}
 
-          {currentView === 'coach' && (
+          {currentRoute === 'coach' && (
             <CoachView
               user={user}
               appState={appState}
@@ -2603,84 +3338,43 @@ function App() {
               distractions={appState.distractions}
               focusSessions={appState.focusSessions}
               onToggleHabit={handleToggleHabit}
-              onQuickReset={startQuickReset}
-              onBack={() => setCurrentView('dashboard')}
-              onOpenDistractions={() => setCurrentView('distractions')}
-              onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); setCurrentView('bubble-rhythm'); }}
+              onQuickReset={() => { setActiveResetTypeKey('box'); navigate('exercise'); }}
+              onBack={goBack}
+              onOpenDistractions={() => navigate('distractions')}
+              onOpenMiniGames={(mode) => { setSelectedMiniGameMode(mode || 'rhythm_pop'); navigate('bubble-rhythm'); }}
               onStartFocusSession={(cfg) => setActiveFocusSession(cfg || { taskName: 'Focused Study Sprint', durationMin: 25 })}
-              onActivateMinModeAll={() => {
-                setAppState(prev => ({
-                  ...prev,
-                  habits: prev.habits.map(h => h.todayStatus === null ? { ...h, todayStatus: 'min', currentStreak: h.currentStreak + 1 } : h)
-                }));
-                alert('⚡ All remaining daily goals adjusted to Minimum Mode! Streaks protected.');
-              }}
+              onActivateMinModeAll={handleTurnOnMinimumMode}
             />
           )}
 
-          {currentView === 'goals' && (
-            <GoalsView
-              goals={appState.goals}
-              habits={appState.habits}
-              onBack={() => setCurrentView('dashboard')}
-              onAddHabit={() => { setEditingHabit(null); setShowHabitModal(true); }}
-            />
+          {!['home', 'insights', 'reset', 'journal', 'profile', 'companion', 'bubble-rhythm', 'exercise', 'games', 'zen-garden', 'distractions', 'checkin', 'habits', 'stress', 'goals', 'weekly-report', 'coach'].includes(currentRoute) && (
+            NotFoundComp ? <NotFoundComp onGoHome={() => navigate('home')} /> : (
+              <div className="py-12 text-center">
+                <h2 className="text-xl font-bold">Page not found</h2>
+                <button onClick={() => navigate('home')} className="mt-4 px-4 py-2 rounded-xl bg-[#1b4332] text-white">Return Home</button>
+              </div>
+            )
           )}
+        </AppShellComp>
+      ) : (
+        <div className="p-8">Loading application...</div>
+      )}
 
-          {currentView === 'weekly-report' && (
-            <WeeklyReportView
-              appState={appState}
-              wellbeing={wellbeing}
-              earlySignals={earlySignals}
-              distractions={appState.distractions}
-              focusSessions={appState.focusSessions}
-              distractionGoalMinutes={appState.distractionGoalMinutes}
-              onBack={() => setCurrentView('dashboard')}
-              onQuickReset={() => startQuickReset(ACTIVITIES['breathing-426'])}
-              onOpenDistractions={() => setCurrentView('distractions')}
-            />
-          )}
-
-          {currentView === 'login' && (
-            <LoginView
-              user={user}
-              googleClientId={googleClientId}
-              setGoogleClientId={setGoogleClientId}
-              onGoogleSuccess={handleGoogleSuccess}
-              onContinueAsGuest={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'onboarding')}
-              onBack={() => setCurrentView(appState.profile?.isCompleted ? 'dashboard' : 'landing')}
-              authLoading={authLoading}
-              authError={authError}
-            />
-          )}
-
-          {currentView === 'exercise' && (
-            <ExerciseEngine
-              activity={activeQuickReset}
-              onComplete={handleExerciseComplete}
-              onCancel={() => setCurrentView('dashboard')}
-              soundEnabled={appState.soundEnabled}
-            />
-          )}
-        </main>
-
-        {/* Clean Application Footer */}
-        <FooterNav
-          user={user}
-          currentView={currentView}
-          setCurrentView={setCurrentView}
-          onOpenSafety={() => setShowSafetyModal(true)}
-          onOpenPrivacy={() => setShowPrivacyModal(true)}
-          onOpenSettings={() => setCurrentView('profile')}
+      {/* Intervention Bottom Sheet */}
+      {InterventionSheetComp && (
+        <InterventionSheetComp
+          isOpen={isInterventionSheetOpen}
+          onClose={() => setIsInterventionSheetOpen(false)}
+          intervention={activeSelectedIntervention}
+          onStartActivity={(itv) => {
+            if (itv.type === 'breathing') {
+              setActiveResetTypeKey('box');
+              navigate('exercise');
+            }
+          }}
+          onSaveFeedback={handleSaveInterventionFeedback}
         />
-      </div>
-
-      {/* Mobile Bottom Navigation Bar */}
-      <MobileBottomNav
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        onOpenMore={() => setCurrentView('profile')}
-      />
+      )}
 
       {/* Modals & Dialogs */}
       {/* Interactive Live Focus Session Player */}
@@ -2732,6 +3426,14 @@ function App() {
         />
       )}
 
+      {showRoughDayModal && (
+        <RoughDayConfirmModal
+          isOpen={showRoughDayModal}
+          onConfirm={handleTurnOnMinimumMode}
+          onClose={() => setShowRoughDayModal(false)}
+        />
+      )}
+
       {showHabitModal && (
         <HabitModal
           goals={appState.goals}
@@ -2755,6 +3457,18 @@ function App() {
           intervention={activeIntervention}
           onComplete={handleCompleteIntervention}
           onCancel={() => setActiveIntervention(null)}
+        />
+      )}
+
+      {/* Pre/Post Reset Tension Rating Modal (1-5 Scale) */}
+      {tensionPrompt?.isOpen && (
+        <TensionRatingModal
+          isOpen={true}
+          step={tensionPrompt.step}
+          resetType={tensionPrompt.resetType}
+          onSelect={tensionPrompt.step === 'before' ? handlePreTensionSelect : handlePostTensionSelect}
+          onSkip={() => (tensionPrompt.step === 'before' ? handlePreTensionSelect(null) : handlePostTensionSelect(null))}
+          onCancel={() => { setTensionPrompt(null); setActiveResetSession(null); }}
         />
       )}
 
@@ -2793,7 +3507,7 @@ function App() {
       )}
 
       {showSafetyModal && <SafetyModal onClose={() => setShowSafetyModal(false)} />}
-      
+
       {showSettingsModal && (
         <SettingsModal
           user={user}
@@ -2819,16 +3533,7 @@ function App() {
         />
       )}
 
-      {/* Footer Nav */}
-      <FooterNav
-        user={user}
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        onOpenSafety={() => setShowSafetyModal(true)}
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
-        onOpenSettings={() => setShowSettingsModal(true)}
-      />
-    </div>
+    </ErrorBoundaryComp>
   );
 }
 
@@ -2845,6 +3550,7 @@ function SidebarNav({
   currentView,
   setCurrentView,
   user,
+  checkInStatus,
   onSignOut,
   onGoToLogin,
   onOpenSettings,
@@ -2857,10 +3563,11 @@ function SidebarNav({
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [currentView, user, isShieldModeActive]);
+  }, [currentView, user, isShieldModeActive, checkInStatus]);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+    { id: 'checkin', label: 'Check-in', icon: 'clipboard-check', badge: checkInStatus?.hasCheckedInToday ? 'Done' : 'Pending' },
     { id: 'stress', label: 'Stress', icon: 'shield-alert', badge: earlySignals?.statusLevel === 'elevated' || earlySignals?.statusLevel === 'demanding' ? 'Alert' : null },
     { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
     { id: 'breathing', label: 'Breathing', icon: 'wind' },
@@ -2951,11 +3658,10 @@ function SidebarNav({
         {/* Preemptive Shield Toggle */}
         <button
           onClick={onToggleShieldMode}
-          className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
-            isShieldModeActive
+          className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${isShieldModeActive
               ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm'
               : 'bg-[#f7f8f6] text-[#18201d] border-[#e8eae6] hover:bg-[#e8f3ed] hover:border-[#cfe1d7]'
-          }`}
+            }`}
           title="Toggle Preemptive Burnout Shield Mode (2-Min Micro-Doses)"
         >
           <div className="flex items-center gap-2">
@@ -3038,6 +3744,7 @@ function TopHeaderBar({
 
   const viewTitles = {
     dashboard: 'Daily Wellbeing Overview',
+    checkin: 'Daily 20-Second Check-in',
     stress: 'Stress Protection & Early Signals',
     habits: 'Habit Consistency & Micro-Doses',
     breathing: 'Breathing Space & Guided Resets',
@@ -3090,11 +3797,10 @@ function TopHeaderBar({
         {/* Ambient Soundscape Audio Toggle */}
         <button
           onClick={toggleSound}
-          className={`p-2 rounded-xl border text-xs transition-colors ${
-            soundEnabled
+          className={`p-2 rounded-xl border text-xs transition-colors ${soundEnabled
               ? 'bg-[#e8f3ed] border-[#cfe1d7] text-[#1b4332]'
               : 'bg-white border-[#e8eae6] text-[#82928b] hover:text-[#18201d]'
-          }`}
+            }`}
           title={soundEnabled ? 'Ambient Soundscape Active' : 'Soundscape Muted'}
         >
           <i data-lucide={soundEnabled ? 'volume-2' : 'volume-x'} className="w-4 h-4"></i>
@@ -3138,9 +3844,9 @@ function MobileBottomNav({ currentView, setCurrentView, onOpenMore }) {
 
   const tabs = [
     { id: 'dashboard', label: 'Today', icon: 'layout-dashboard' },
+    { id: 'checkin', label: 'Check-in', icon: 'clipboard-check' },
     { id: 'stress', label: 'Stress', icon: 'shield-alert' },
     { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
-    { id: 'breathing', label: 'Breathing', icon: 'wind' },
     { id: 'profile', label: 'More', icon: 'menu' }
   ];
 
@@ -3267,11 +3973,10 @@ function StressHubView({
 
           <button
             onClick={onToggleShieldMode}
-            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              isShieldModeActive
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${isShieldModeActive
                 ? 'bg-[#1b4332] text-white shadow-sm'
                 : 'bg-[#18201d] text-white hover:bg-black'
-            }`}
+              }`}
           >
             <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-4 h-4"></i>
             <span>{isShieldModeActive ? 'Deactivate Shield' : 'Activate 2-Min Shield'}</span>
@@ -3325,10 +4030,515 @@ function StressHubView({
   );
 }
 
+// ==========================================================================
+// 1B. 20-SECOND DAILY CHECK-IN VIEW & DASHBOARD WIDGET
+// ==========================================================================
+
+function CheckInView({
+  user,
+  dailyCheckIns = [],
+  onSaveCheckIn,
+  onBack
+}) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, []);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const existingToday = (dailyCheckIns || []).find(c => (c.date || c.checkInDate) === todayStr);
+
+  const [mood, setMood] = useState(existingToday?.mood ?? 3);
+  const [energy, setEnergy] = useState(existingToday?.energy ?? 3);
+  const [stress, setStress] = useState(existingToday?.stress ?? 2);
+  const [workload, setWorkload] = useState(existingToday?.workload ?? 3);
+  const [sleep, setSleep] = useState(existingToday?.sleep ?? 7.5);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const moodOptions = [
+    { val: 1, label: 'Low', emoji: '😞' },
+    { val: 2, label: 'Down', emoji: '🙁' },
+    { val: 3, label: 'Okay', emoji: '😐' },
+    { val: 4, label: 'Good', emoji: '🙂' },
+    { val: 5, label: 'Great', emoji: '😊' }
+  ];
+
+  const energyOptions = [
+    { val: 1, label: 'Drained', emoji: '🪫' },
+    { val: 2, label: 'Low', emoji: '🥱' },
+    { val: 3, label: 'Moderate', emoji: '⚡' },
+    { val: 4, label: 'High', emoji: '🔋' },
+    { val: 5, label: 'Charged', emoji: '⚡' }
+  ];
+
+  const stressOptions = [
+    { val: 1, label: 'Very Low', emoji: '🌿' },
+    { val: 2, label: 'Mild', emoji: '😌' },
+    { val: 3, label: 'Moderate', emoji: '⚖️' },
+    { val: 4, label: 'High', emoji: '😣' },
+    { val: 5, label: 'Very High', emoji: '🚨' }
+  ];
+
+  const workloadOptions = [
+    { val: 1, label: 'Very Light', emoji: '🛋️' },
+    { val: 2, label: 'Light', emoji: '📖' },
+    { val: 3, label: 'Manageable', emoji: '💼' },
+    { val: 4, label: 'Heavy', emoji: '📚' },
+    { val: 5, label: 'Overloaded', emoji: '🏔️' }
+  ];
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const clampedSleep = Math.max(0, Math.min(14, Number(sleep) || 0));
+    onSaveCheckIn({
+      mood: Number(mood),
+      energy: Number(energy),
+      stress: Number(stress),
+      workload: Number(workload),
+      sleep: clampedSleep
+    });
+    setIsSaved(true);
+    setTimeout(() => {
+      onBack();
+    }, 900);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-12">
+      {/* Top Header */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs text-[#55645e] hover:text-[#18201d] font-semibold transition-colors"
+        >
+          <i data-lucide="arrow-left" className="w-4 h-4"></i>
+          <span>Back to Dashboard</span>
+        </button>
+
+        <span className="text-xs font-semibold text-[#1b4332] bg-[#e8f3ed] px-2.5 py-1 rounded-full border border-[#cfe1d7]">
+          ⏱️ Takes ~20 Seconds
+        </span>
+      </div>
+
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">
+          {existingToday ? "Update Today's Check-in" : "Daily Check-in"}
+        </h1>
+        <p className="text-xs sm:text-sm text-[#55645e] mt-1">
+          Based on your check-ins, Breathly personalizes your Wellbeing Index and daily habit pacing.
+        </p>
+      </div>
+
+      {existingToday && (
+        <div className="p-3.5 rounded-xl bg-[#e8f3ed] border border-[#cfe1d7] text-xs text-[#1b4332] flex items-center gap-2">
+          <i data-lucide="info" className="w-4 h-4 shrink-0"></i>
+          <span>
+            You already checked in today. Updating your answers will refresh your Wellbeing Index without creating duplicate entries.
+          </span>
+        </div>
+      )}
+
+      {isSaved && (
+        <div className="p-3.5 rounded-xl bg-[#e8f3ed] border border-[#cfe1d7] text-xs text-[#1b4332] flex items-center gap-2 animate-fade-in font-bold">
+          <i data-lucide="check-circle" className="w-4 h-4"></i>
+          <span>Check-in saved! Updating your Wellbeing Index...</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="breathly-card p-6 space-y-6">
+        {/* 1. Mood Scale (1-5) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#18201d] uppercase tracking-wider">
+              1. How is your mood today?
+            </label>
+            <span className="text-xs font-bold text-[#1b4332]">
+              {moodOptions.find(o => o.val === mood)?.label}
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {moodOptions.map((opt) => {
+              const isSelected = mood === opt.val;
+              return (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setMood(opt.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
+                      ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm font-bold scale-[1.02]'
+                      : 'bg-[#f7f8f6] border-[#e8eae6] text-[#55645e] hover:border-[#cfe1d7] hover:text-[#18201d]'
+                    }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  <span className="text-xs font-bold">{opt.val}</span>
+                  <span className="text-[10px] hidden sm:block truncate w-full">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. Energy Scale (1-5) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#18201d] uppercase tracking-wider">
+              2. What is your energy level?
+            </label>
+            <span className="text-xs font-bold text-[#1b4332]">
+              {energyOptions.find(o => o.val === energy)?.label}
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {energyOptions.map((opt) => {
+              const isSelected = energy === opt.val;
+              return (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setEnergy(opt.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
+                      ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm font-bold scale-[1.02]'
+                      : 'bg-[#f7f8f6] border-[#e8eae6] text-[#55645e] hover:border-[#cfe1d7] hover:text-[#18201d]'
+                    }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  <span className="text-xs font-bold">{opt.val}</span>
+                  <span className="text-[10px] hidden sm:block truncate w-full">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Stress Scale (1-5) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#18201d] uppercase tracking-wider">
+              3. How much stress or pressure are you feeling?
+            </label>
+            <span className="text-xs font-bold text-[#1b4332]">
+              {stressOptions.find(o => o.val === stress)?.label}
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {stressOptions.map((opt) => {
+              const isSelected = stress === opt.val;
+              return (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setStress(opt.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
+                      ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm font-bold scale-[1.02]'
+                      : 'bg-[#f7f8f6] border-[#e8eae6] text-[#55645e] hover:border-[#cfe1d7] hover:text-[#18201d]'
+                    }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  <span className="text-xs font-bold">{opt.val}</span>
+                  <span className="text-[10px] hidden sm:block truncate w-full">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4. Workload Scale (1-5) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#18201d] uppercase tracking-wider">
+              4. How demanding is your workload today?
+            </label>
+            <span className="text-xs font-bold text-[#1b4332]">
+              {workloadOptions.find(o => o.val === workload)?.label}
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {workloadOptions.map((opt) => {
+              const isSelected = workload === opt.val;
+              return (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setWorkload(opt.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
+                      ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm font-bold scale-[1.02]'
+                      : 'bg-[#f7f8f6] border-[#e8eae6] text-[#55645e] hover:border-[#cfe1d7] hover:text-[#18201d]'
+                    }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  <span className="text-xs font-bold">{opt.val}</span>
+                  <span className="text-[10px] hidden sm:block truncate w-full">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 5. Sleep Hours Input (0-14) */}
+        <div className="space-y-2 pt-2 border-t border-[#e8eae6]">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[#18201d] uppercase tracking-wider">
+              5. How many hours did you sleep last night?
+            </label>
+            <span className="text-xs font-bold text-[#1b4332]">
+              {sleep} hours
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 relative">
+              <input
+                type="number"
+                min="0"
+                max="14"
+                step="0.5"
+                value={sleep}
+                onChange={(e) => setSleep(Math.max(0, Math.min(14, Number(e.target.value) || 0)))}
+                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] text-[#18201d] font-bold text-sm focus:outline-none focus:border-[#1b4332]"
+                placeholder="e.g. 7.5"
+                required
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#82928b]">
+                Hours (0–14)
+              </span>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="flex items-center gap-1">
+              {[6, 7, 8, 9].map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setSleep(h)}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${Number(sleep) === h
+                      ? 'bg-[#1b4332] text-white border-[#1b4332]'
+                      : 'bg-white border-[#e8eae6] text-[#55645e] hover:border-[#cfe1d7]'
+                    }`}
+                >
+                  {h}h
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="pt-4 border-t border-[#e8eae6]">
+          <button
+            type="submit"
+            disabled={isSaved}
+            className="btn-primary w-full py-3 text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <i data-lucide="check" className="w-4 h-4"></i>
+            <span>{existingToday ? "Update Today's Check-in" : "Save Daily Check-in"}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DashboardCheckInWidget({ checkInStatus, onOpenCheckIn }) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [checkInStatus]);
+
+  const hasCheckedIn = checkInStatus?.hasCheckedInToday;
+  const entry = checkInStatus?.todayCheckIn;
+
+  return (
+    <div className="breathly-card p-5 space-y-3 flex flex-col justify-between">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-[#e8f3ed] text-[#1b4332]">
+              <i data-lucide="clipboard-check" className="w-4 h-4"></i>
+            </span>
+            <h3 className="text-sm font-bold text-[#18201d]">Today's Check-in</h3>
+          </div>
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${hasCheckedIn
+              ? 'bg-[#eef6f2] text-[#2d6a4f] border-[#d1e7dc]'
+              : 'bg-[#fef7ed] text-[#b8772a] border-[#fbe2bd]'
+            }`}>
+            {hasCheckedIn ? 'Completed' : 'Pending'}
+          </span>
+        </div>
+
+        {hasCheckedIn ? (
+          <div className="space-y-2 pt-1">
+            <p className="text-xs text-[#55645e]">
+              Based on your check-in today:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              <div className="p-2 rounded-lg bg-[#f7f8f6] border border-[#e8eae6] text-[11px]">
+                <span className="text-[#82928b] block text-[10px] uppercase font-bold">Mood</span>
+                <span className="font-extrabold text-[#18201d]">{entry?.mood ?? 3} / 5</span>
+              </div>
+              <div className="p-2 rounded-lg bg-[#f7f8f6] border border-[#e8eae6] text-[11px]">
+                <span className="text-[#82928b] block text-[10px] uppercase font-bold">Energy</span>
+                <span className="font-extrabold text-[#18201d]">{entry?.energy ?? 3} / 5</span>
+              </div>
+              <div className="p-2 rounded-lg bg-[#f7f8f6] border border-[#e8eae6] text-[11px]">
+                <span className="text-[#82928b] block text-[10px] uppercase font-bold">Stress</span>
+                <span className="font-extrabold text-[#18201d]">{entry?.stress ?? 3} / 5</span>
+              </div>
+              <div className="p-2 rounded-lg bg-[#f7f8f6] border border-[#e8eae6] text-[11px]">
+                <span className="text-[#82928b] block text-[10px] uppercase font-bold">Workload</span>
+                <span className="font-extrabold text-[#18201d]">{entry?.workload ?? 3} / 5</span>
+              </div>
+              <div className="p-2 rounded-lg bg-[#f7f8f6] border border-[#e8eae6] text-[11px] col-span-2 sm:col-span-2">
+                <span className="text-[#82928b] block text-[10px] uppercase font-bold">Sleep Last Night</span>
+                <span className="font-extrabold text-[#18201d]">{entry?.sleep ?? 7} Hours</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5 pt-1">
+            <p className="text-xs text-[#55645e] leading-relaxed">
+              Take 20 seconds to log how you feel. Your answers calculate your Wellbeing Index and adapt your daily habit pacing.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onOpenCheckIn}
+        className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${hasCheckedIn ? 'btn-secondary' : 'btn-primary'
+          }`}
+      >
+        <i data-lucide={hasCheckedIn ? "edit-3" : "play"} className="w-3.5 h-3.5"></i>
+        <span>{hasCheckedIn ? "Edit Today's Check-in" : "Start 20s Check-in"}</span>
+      </button>
+    </div>
+  );
+}
+
+// --- 12-MONTH ACTIVITY & CONSISTENCY HEATMAP COMPONENT ---
+function ActivityHeatmap({ appState, consistency }) {
+  const heatmapData = useMemo(() => {
+    if (typeof generate12MonthHeatmapData === 'function') {
+      return generate12MonthHeatmapData(appState);
+    }
+    return { weeks: [], monthLabels: [] };
+  }, [appState]);
+
+  const { weeks = [], monthLabels = [] } = heatmapData;
+  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  const getCellColor = (status) => {
+    switch (status) {
+      case 'completed':
+        // Regular completed habit: Deep rich emerald green
+        return 'bg-[#1b4332] border-[#143326]';
+      case 'roughDay':
+        // Rough Day (2-min Minimum Mode): Lighter mint green (distinct from missed days)
+        return 'bg-[#86efac] border-[#4ade80]';
+      case 'graceDay':
+        // Grace Day: Soft warm gold/amber (distinct from missed days)
+        return 'bg-[#fde68a] border-[#fcd34d]';
+      case 'missed':
+      default:
+        // Missed day: Neutral light gray
+        return 'bg-[#ebede9] border-[#e1e4de]';
+    }
+  };
+
+  return (
+    <div className="breathly-card p-5 sm:p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h3 className="text-base font-extrabold text-[#18201d] flex items-center gap-2">
+            <span>📅</span>
+            <span>12-Month Activity & Consistency Heatmap</span>
+          </h3>
+          <p className="text-xs text-[#55645e] mt-0.5">
+            52-week rolling activity calendar. Missed days automatically use grace days to protect your progress.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <span className="text-xs font-bold text-[#1b4332] bg-[#e8f3ed] px-2.5 py-1 rounded-full border border-[#cfe1d7]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
+          </span>
+        </div>
+      </div>
+
+      {/* Heatmap Grid Container with Horizontal Scroll for Small Screens */}
+      <div className="overflow-x-auto pb-2 pt-1">
+        <div className="min-w-[760px]">
+          {/* Month labels row */}
+          <div className="flex text-[10px] font-bold text-[#82928b] mb-1.5 pl-6 relative h-4">
+            {monthLabels.map((m, idx) => (
+              <span
+                key={idx}
+                style={{ left: `${Math.min(95, (m.weekIndex / 52) * 100)}%` }}
+                className="absolute transform -translate-x-1"
+              >
+                {m.label}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-1.5">
+            {/* Day of week labels */}
+            <div className="flex flex-col justify-between text-[9px] font-bold text-[#82928b] py-0.5 w-4 shrink-0">
+              {daysOfWeek.map((day, idx) => (
+                <span key={idx} className="h-3 leading-3">{day}</span>
+              ))}
+            </div>
+
+            {/* 52 Week Columns */}
+            <div className="flex gap-1 flex-1">
+              {weeks.map((week, wIdx) => (
+                <div key={wIdx} className="flex flex-col gap-1 flex-1">
+                  {week.map((day, dIdx) => (
+                    <div
+                      key={day.dateStr || dIdx}
+                      className={`w-full aspect-square rounded-[3px] border ${getCellColor(day.status)} transition-transform hover:scale-125 cursor-pointer`}
+                      title={`${day.formattedDate}: ${day.label}`}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#f0f2ee] text-[11px] text-[#55645e]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[#1b4332] border border-[#143326]" />
+            <span className="font-medium text-[#18201d]">Completed</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[#86efac] border border-[#4ade80]" />
+            <span className="font-medium text-[#18201d]">Rough Day (2-min)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[#fde68a] border border-[#fcd34d]" />
+            <span className="font-medium text-[#18201d]">Grace Day (Covered)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-[3px] bg-[#ebede9] border border-[#e1e4de]" />
+            <span className="font-medium text-[#82928b]">Missed Day</span>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-[#82928b] italic">
+          Hover squares for dates & details
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- DEDICATED HABITS HUB VIEW ---
 function HabitsHubView({
+  appState,
   habits = [],
   goals = [],
+  isMinimumModeToday = false,
+  consistency,
   onToggleHabit,
   onAddHabit,
   onEditHabit,
@@ -3378,11 +4588,13 @@ function HabitsHubView({
         </div>
 
         <div className="metric-card-clean">
-          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Active Streaks</div>
-          <div className="text-2xl font-extrabold text-[#d94e34]">
-            {habits.reduce((acc, h) => acc + (h.currentStreak || 0), 0)} Days
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Habit Consistency</div>
+          <div className="text-2xl font-extrabold text-[#2d6a4f]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} of 7 Days`}
           </div>
-          <div className="text-[11px] text-[#55645e]">Across all daily rituals</div>
+          <div className="text-[11px] text-[#55645e]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
+          </div>
         </div>
 
         <div className="metric-card-clean">
@@ -3400,17 +4612,19 @@ function HabitsHubView({
         </div>
       </div>
 
+      {/* 12-Month Activity & Consistency Heatmap */}
+      <ActivityHeatmap appState={appState} consistency={consistency} />
+
       {/* Category Filter Chips */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all ${
-              selectedCategory === cat
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all ${selectedCategory === cat
                 ? 'bg-[#1b4332] text-white shadow-sm'
                 : 'bg-white border border-[#e8eae6] text-[#55645e] hover:text-[#18201d]'
-            }`}
+              }`}
           >
             {cat}
           </button>
@@ -3445,7 +4659,7 @@ function HabitsHubView({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1">
                     <button
-                      onClick={() => onToggleHabit(habit.id, 'full')}
+                      onClick={() => onToggleHabit(habit.id, isMinimumModeToday ? 'min' : 'full')}
                       className={`habit-checkbox ${isFull ? 'checked-full' : isMin ? 'checked-min' : ''}`}
                       title={isFull || isMin ? 'Completed — click to review' : 'Click to start timer'}
                     >
@@ -3465,7 +4679,15 @@ function HabitsHubView({
                       </div>
 
                       <p className="text-xs text-[#55645e] mt-0.5">
-                        Target: {habit.targetVal} {habit.targetUnit} • <span className="capitalize">{habit.preferredTime}</span>
+                        {isMinimumModeToday ? (
+                          <span className="text-[#065f46] font-semibold bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-md inline-block">
+                            ⚡ 2-min: {habit.tinyVersion || 'Do just 2 minutes of this'}
+                          </span>
+                        ) : (
+                          <span>Target: {habit.targetVal} {habit.targetUnit}</span>
+                        )}
+                        <span className="mx-1">•</span>
+                        <span className="capitalize">{habit.preferredTime}</span>
                       </p>
                     </div>
                   </div>
@@ -3493,7 +4715,7 @@ function HabitsHubView({
                     className={`min-mode-pill ${isMin ? 'bg-[#fbe2bd] text-[#b8772a] font-extrabold' : ''}`}
                     title="Start 2-min Minimum Mode micro-dose"
                   >
-                    <span>⚡ Min: {habit.minModeVal} {habit.minModeUnit}</span>
+                    <span>⚡ {isMinimumModeToday ? (habit.tinyVersion || 'Do just 2 minutes of this') : `Min: ${habit.minModeVal} ${habit.minModeUnit}`}</span>
                   </button>
 
                   <button
@@ -3773,11 +4995,10 @@ function ProfileHubView({
               <div
                 key={m.id}
                 onClick={() => setTheme(m.id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  isSelected
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${isSelected
                     ? 'bg-[#e8f3ed] border-[#1b4332] shadow-sm'
                     : 'bg-white border-[#e8eae6] hover:border-[#cfe1d7]'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{m.icon}</span>
@@ -3802,11 +5023,10 @@ function ProfileHubView({
               key={s}
               type="button"
               onClick={() => setAmbientSound(s)}
-              className={`py-2 px-3 rounded-xl border text-center capitalize text-xs transition-all ${
-                ambientSound === s
+              className={`py-2 px-3 rounded-xl border text-center capitalize text-xs transition-all ${ambientSound === s
                   ? 'bg-[#1b4332] border-[#1b4332] text-white font-bold shadow-sm'
                   : 'bg-white border-[#e8eae6] text-[#18201d] hover:bg-[#f7f8f6]'
-              }`}
+                }`}
             >
               {s === 'none' ? 'Mute' : s}
             </button>
@@ -3901,16 +5121,16 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
             <i data-lucide="sparkles" className="w-3.5 h-3.5 text-indigo-600"></i>
             <span>Step {step} of {totalSteps}</span>
           </div>
-          <button 
-            onClick={() => onComplete(profile)} 
+          <button
+            onClick={() => onComplete(profile)}
             className="text-xs text-slate-500 hover:text-slate-900 underline underline-offset-4"
           >
             Skip & use defaults
           </button>
         </div>
         <div className="onboard-progress-bar">
-          <div 
-            className="onboard-progress-fill" 
+          <div
+            className="onboard-progress-fill"
             style={{ width: `${(step / totalSteps) * 100}%` }}
           ></div>
         </div>
@@ -4287,7 +5507,7 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
   }, [checkInStatus, isDismissed, isHighStressState]);
 
   const isStudent = (profile?.occupation || '').toLowerCase().includes('student') || (profile?.occupation || '').toLowerCase().includes('both');
-  
+
   // Find if user has an active upcoming exam/deadline in next 3 days
   const now = new Date();
   const nearPressure = (upcomingPressures || []).find(p => {
@@ -4324,13 +5544,11 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
     ));
 
     return (
-      <div className={`daily-checkin-panel flex flex-col sm:flex-row items-start sm:items-center justify-between py-3.5 px-4 sm:px-5 gap-3 ${
-        isStressfulRecorded ? 'bg-gradient-to-r from-purple-50/90 via-indigo-50/60 to-white border-purple-200 shadow-2xs' : 'bg-emerald-50/50 border-emerald-200'
-      }`}>
+      <div className={`daily-checkin-panel flex flex-col sm:flex-row items-start sm:items-center justify-between py-3.5 px-4 sm:px-5 gap-3 ${isStressfulRecorded ? 'bg-gradient-to-r from-purple-50/90 via-indigo-50/60 to-white border-purple-200 shadow-2xs' : 'bg-emerald-50/50 border-emerald-200'
+        }`}>
         <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 ${
-            isStressfulRecorded ? 'bg-purple-100 border-purple-300 text-purple-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'
-          }`}>
+          <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 ${isStressfulRecorded ? 'bg-purple-100 border-purple-300 text-purple-800' : 'bg-emerald-100 border-emerald-300 text-emerald-800'
+            }`}>
             <i data-lucide={isStressfulRecorded ? 'sparkles' : 'check'} className="w-4 h-4"></i>
           </div>
           <div>
@@ -4338,8 +5556,8 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
               {isStressfulRecorded ? '⚡ High-Pressure Pulse Recorded' : 'Today’s Well-Being Pulse Recorded'}
             </h4>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              {isStressfulRecorded 
-                ? 'Your answers indicate cognitive strain. A 2-minute bubble break can help reset working memory.' 
+              {isStressfulRecorded
+                ? 'Your answers indicate cognitive strain. A 2-minute bubble break can help reset working memory.'
                 : 'Habit difficulty and coaching signals are synced with your answers.'}
             </p>
           </div>
@@ -4355,9 +5573,8 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
               <i data-lucide="arrow-right" className="w-3 h-3"></i>
             </button>
           )}
-          <span className={`text-[10px] font-bold bg-white px-2.5 py-1 rounded-full border ${
-            isStressfulRecorded ? 'text-purple-700 border-purple-200' : 'text-emerald-700 border-emerald-200'
-          }`}>
+          <span className={`text-[10px] font-bold bg-white px-2.5 py-1 rounded-full border ${isStressfulRecorded ? 'text-purple-700 border-purple-200' : 'text-emerald-700 border-emerald-200'
+            }`}>
             Synced
           </span>
         </div>
@@ -4378,8 +5595,8 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
           </div>
         </div>
 
-        <button 
-          onClick={() => setIsDismissed(true)} 
+        <button
+          onClick={() => setIsDismissed(true)}
           className="text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
           title="Dismiss for now"
         >
@@ -4414,11 +5631,11 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
         {/* Question 2: Workload / Contextual demands */}
         <div>
           <label className="text-slate-700 font-bold block mb-2">
-            {nearPressure 
+            {nearPressure
               ? `2. How are you feeling about upcoming "${nearPressure.title}"?`
-              : isStudent 
-              ? '2. How is your study / class workload today?' 
-              : '2. How is your work and screen load today?'}
+              : isStudent
+                ? '2. How is your study / class workload today?'
+                : '2. How is your work and screen load today?'}
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
@@ -4712,9 +5929,8 @@ function DistractionDashboardCard({
               <span>🎯 Daily Target:</span>
               <span className="font-extrabold text-indigo-600">{todayDistractionMin}/{goalTarget} min</span>
             </span>
-            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-              isOverGoal ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-            }`}>
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isOverGoal ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              }`}>
               {isOverGoal ? `+${todayDistractionMin - goalTarget}m above target` : `${Math.max(0, goalTarget - todayDistractionMin)}m buffer left`}
             </span>
           </div>
@@ -4882,11 +6098,10 @@ function PersonalizedWellBeingCard({
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Current Well-Being State</span>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-              stressCategory === 'High' ? 'status-badge-demanding' :
-              stressCategory === 'Moderate' ? 'status-badge-elevated' :
-              'status-badge-calm'
-            }`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${stressCategory === 'High' ? 'status-badge-demanding' :
+                stressCategory === 'Moderate' ? 'status-badge-elevated' :
+                  'status-badge-calm'
+              }`}>
               {hasSufficientData ? `${stressCategory} Stress Risk` : 'Gathering Baseline'}
             </span>
           </div>
@@ -4897,11 +6112,10 @@ function PersonalizedWellBeingCard({
               <span className="text-xs font-bold text-slate-800">
                 Stress Trend:
               </span>
-              <span className={`trend-pill ${
-                stressTrend.trend === 'increasing' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
-                stressTrend.trend === 'decreasing' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
-                'bg-slate-100 text-slate-700 border border-slate-200'
-              }`}>
+              <span className={`trend-pill ${stressTrend.trend === 'increasing' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
+                  stressTrend.trend === 'decreasing' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                    'bg-slate-100 text-slate-700 border border-slate-200'
+                }`}>
                 {stressTrend.trend === 'increasing' && '📈 Increasing'}
                 {stressTrend.trend === 'decreasing' && '📉 Decreasing'}
                 {stressTrend.trend === 'stable' && '➡️ Stable'}
@@ -5208,11 +6422,10 @@ function InterventionModal({
                     key={opt.id}
                     type="button"
                     onClick={() => setEnjoyment(opt.id)}
-                    className={`py-2 rounded-xl border text-xs font-bold transition-all ${
-                      enjoyment === opt.id
+                    className={`py-2 rounded-xl border text-xs font-bold transition-all ${enjoyment === opt.id
                         ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-2xs'
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -5301,7 +6514,15 @@ function DashboardView({
   onAddPressure,
   wellbeingRecommendations,
   onStartIntervention,
-  onSignIn
+  onOpenCheckIn,
+  onSignIn,
+  isMinimumModeToday = false,
+  showMinModeSuggestion = false,
+  onOpenRoughDayModal,
+  onTurnOffMinimumMode,
+  onAcceptSuggestion,
+  onDismissSuggestion,
+  consistency
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
@@ -5445,6 +6666,19 @@ function DashboardView({
           </div>
 
           <button
+            id="rough-day-btn"
+            onClick={onOpenRoughDayModal}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-1.5 shadow-sm ${isMinimumModeToday
+                ? 'bg-[#ecfdf5] border-[#a7f3d0] text-[#065f46]'
+                : 'bg-[#fffbeb] hover:bg-[#fef3c7] border-[#fde68a] text-[#b45309]'
+              }`}
+            title="Having a rough day? Switch today's habits to 2-minute versions to protect your streak"
+          >
+            <span>{isMinimumModeToday ? '🌱' : '🌧️'}</span>
+            <span>{isMinimumModeToday ? 'Minimum Mode' : 'Rough Day'}</span>
+          </button>
+
+          <button
             onClick={onOpenCoach}
             className="btn-secondary py-1.5 px-3 text-xs"
           >
@@ -5453,6 +6687,67 @@ function DashboardView({
           </button>
         </div>
       </div>
+
+      {/* MINIMUM MODE ACTIVE BANNER */}
+      {isMinimumModeToday && (
+        <div id="minimum-mode-banner" className="p-3.5 sm:p-4 rounded-2xl bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#d1fae5] flex items-center justify-center text-lg flex-shrink-0">
+              🌱
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-[#065f46]">
+                Minimum Mode is active for today
+              </p>
+              <p className="text-[11px] sm:text-xs text-[#047857] mt-0.5">
+                All habits are switched to 2-minute versions so your streaks stay protected without the pressure. Switches off automatically tomorrow.
+              </p>
+            </div>
+          </div>
+          <button
+            id="turn-off-min-mode-btn"
+            onClick={onTurnOffMinimumMode}
+            className="text-xs font-bold underline hover:text-[#047857] text-[#059669] self-start sm:self-center px-3 py-1.5 rounded-lg hover:bg-[#d1fae5] transition-colors"
+          >
+            Turn off
+          </button>
+        </div>
+      )}
+
+      {/* AUTOMATIC MINIMUM MODE SUGGESTION BANNER */}
+      {!isMinimumModeToday && showMinModeSuggestion && (
+        <div id="min-mode-suggestion-banner" className="p-3.5 sm:p-4 rounded-2xl bg-[#fffbeb] border border-[#fde68a] text-[#92400e] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#fef3c7] flex items-center justify-center text-lg flex-shrink-0">
+              💛
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-[#92400e]">
+                Looks like a heavy stretch. Want a lighter plan for a few days?
+              </p>
+              <p className="text-[11px] sm:text-xs text-[#b45309] mt-0.5">
+                We can switch today's habits to 2-minute micro-versions to keep your consistency intact without the overload.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <button
+              id="accept-min-mode-suggestion-btn"
+              onClick={onAcceptSuggestion}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#f59e0b] hover:bg-[#d97706] text-white shadow-sm transition-colors"
+            >
+              Yes, switch to Minimum Mode
+            </button>
+            <button
+              id="dismiss-min-mode-suggestion-btn"
+              onClick={onDismissSuggestion}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl text-[#78350f] hover:bg-[#fef3c7] transition-colors"
+            >
+              No, keep regular
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. KEY WELLBEING STATUS HIGHLIGHTS ROW */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -5471,7 +6766,11 @@ function DashboardView({
         </div>
 
         {/* Status 2: Today's Check-in */}
-        <div className="breathly-card p-4 space-y-1">
+        <div
+          onClick={onOpenCheckIn}
+          className="breathly-card p-4 space-y-1 cursor-pointer hover:border-[#1b4332] transition-colors"
+          title="Open Daily 20-Second Check-in"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Today's Check-in</span>
             <i data-lucide={hasCheckedIn ? "check-circle" : "clock"} className={`w-3.5 h-3.5 ${hasCheckedIn ? 'text-[#2d6a4f]' : 'text-[#b8772a]'}`}></i>
@@ -5480,21 +6779,21 @@ function DashboardView({
             {hasCheckedIn ? 'Completed' : 'Pending'}
           </div>
           <p className="text-[11px] text-[#55645e] truncate">
-            {hasCheckedIn ? `Mood: ${todayEntry?.overallFeeling || 'Good'}` : 'Tap to log daily pulse'}
+            {hasCheckedIn ? `Mood ${todayEntry?.mood || 3}/5 • Sleep ${todayEntry?.sleep || 7}h` : 'Tap to start 20s check-in'}
           </p>
         </div>
 
-        {/* Status 3: Wellness Streak */}
+        {/* Status 3: Consistency */}
         <div className="breathly-card p-4 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Wellness Streak</span>
-            <span className="text-xs">🔥</span>
+            <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Consistency</span>
+            <span className="text-xs">🌱</span>
           </div>
           <div className="text-sm sm:text-base font-bold text-[#18201d]">
-            {totalStreakDays} Days
+            {consistency?.isEmpty ? 'Add a habit to start' : `Consistency: ${consistency?.effectiveCount ?? 0} of last 7 days`}
           </div>
           <p className="text-[11px] text-[#55645e] truncate">
-            {isShieldModeActive ? 'Shield mode active' : 'Consistency protected'}
+            {consistency?.isEmpty ? 'Start a habit to build rhythm' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
           </p>
         </div>
 
@@ -5505,10 +6804,10 @@ function DashboardView({
             <span className="text-xs">🌿</span>
           </div>
           <div className="text-sm sm:text-base font-bold text-[#18201d]">
-            {todayEntry ? `${todayEntry.stressRating || 5}/10 Strain` : 'Balanced'}
+            {todayEntry ? `Mood ${todayEntry.mood}/5 • Energy ${todayEntry.energy}/5` : 'Awaiting check-in'}
           </div>
           <p className="text-[11px] text-[#55645e] truncate">
-            {profile?.peakTime ? `Peak energy: ${profile.peakTime}` : 'Optimal daytime pace'}
+            {todayEntry ? `Stress ${todayEntry.stress}/5 • Workload ${todayEntry.workload}/5` : 'Based on daily check-ins'}
           </p>
         </div>
 
@@ -5538,7 +6837,11 @@ function DashboardView({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Metric 1: Index Score */}
-          <div className="metric-card-clean">
+          <div
+            onClick={onOpenCheckIn}
+            className="metric-card-clean cursor-pointer hover:border-[#1b4332] transition-colors"
+            title="Open Daily 20-Second Check-in"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Wellbeing Index</span>
               <div className="metric-icon-wrap bg-[#e8f3ed] text-[#1b4332]">
@@ -5546,12 +6849,25 @@ function DashboardView({
               </div>
             </div>
             <div>
-              <div className="text-2xl font-extrabold text-[#18201d]">
-                {wellbeing?.score || 82}<span className="text-xs font-normal text-[#82928b]">/100</span>
-              </div>
-              <div className="text-[11px] text-[#2d6a4f] font-semibold mt-0.5">
-                {wellbeing?.trendLabel || '+4% higher than baseline'}
-              </div>
+              {wellbeing?.hasCheckIns ? (
+                <>
+                  <div className="text-2xl font-extrabold text-[#18201d]">
+                    {wellbeing.score}<span className="text-xs font-normal text-[#82928b]">/100</span>
+                  </div>
+                  <div className="text-[11px] text-[#2d6a4f] font-semibold mt-0.5">
+                    {wellbeing.statusTitle}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm sm:text-base font-bold text-[#18201d] mt-1 leading-snug">
+                    Do your first check-in
+                  </div>
+                  <div className="text-[11px] text-[#b8772a] font-semibold mt-0.5">
+                    Takes only 20 seconds
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -5565,10 +6881,12 @@ function DashboardView({
             </div>
             <div>
               <div className="text-2xl font-extrabold text-[#18201d]">
-                {totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0}%
+                {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.consistencyPercent ?? 0}%`}
               </div>
               <div className="text-[11px] text-[#55645e] mt-0.5">
-                {completedCount} of {totalHabits} completed today
+                {consistency?.isEmpty
+                  ? 'Add a habit to begin tracking'
+                  : `${consistency?.effectiveCount ?? 0} of last 7 days • ${consistency?.graceDaysLeft ?? 2} grace days left`}
               </div>
             </div>
           </div>
@@ -5583,7 +6901,7 @@ function DashboardView({
             </div>
             <div>
               <div className="text-2xl font-extrabold text-[#18201d]">
-                {Math.round(recentGameSessions.reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0) / 60) + 6}m
+                {Math.round(recentGameSessions.reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0) / 60)}m
               </div>
               <div className="text-[11px] text-[#55645e] mt-0.5">
                 Breathing & grounding breaks
@@ -5620,9 +6938,8 @@ function DashboardView({
                 <i data-lucide="shield-check" className="w-4 h-4"></i>
                 <span>Stress Protection</span>
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                isElevatedStress ? 'bg-[#fdf2ee] text-[#c25e40] border border-[#fad5c8]' : 'bg-[#e8f3ed] text-[#1b4332] border border-[#cfe1d7]'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isElevatedStress ? 'bg-[#fdf2ee] text-[#c25e40] border border-[#fad5c8]' : 'bg-[#e8f3ed] text-[#1b4332] border border-[#cfe1d7]'
+                }`}>
                 {isElevatedStress ? 'Early Stress Spike Detected' : 'Physiological Pacing Steady'}
               </span>
             </div>
@@ -5647,11 +6964,10 @@ function DashboardView({
 
             <button
               onClick={onToggleShieldMode}
-              className={`py-2 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
-                isShieldModeActive
+              className={`py-2 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${isShieldModeActive
                   ? 'bg-[#1b4332] text-white border-[#1b4332] shadow-sm'
                   : 'bg-white border-[#e8eae6] text-[#18201d] hover:bg-[#f7f8f6]'
-              }`}
+                }`}
             >
               <i data-lucide={isShieldModeActive ? 'shield-check' : 'shield'} className="w-3.5 h-3.5"></i>
               <span>{isShieldModeActive ? 'Shield On (2-Min Mode)' : 'Activate Shield Mode'}</span>
@@ -5772,7 +7088,7 @@ function DashboardView({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1">
                       <button
-                        onClick={() => onToggleHabit(habit.id, 'full')}
+                        onClick={() => onToggleHabit(habit.id, isMinimumModeToday ? 'min' : 'full')}
                         className={`habit-checkbox ${isFull ? 'checked-full' : isMin ? 'checked-min' : ''}`}
                         title={isFull || isMin ? 'Marked complete — tap to unmark or review' : 'Click to start habit timer'}
                       >
@@ -5792,7 +7108,11 @@ function DashboardView({
                         </div>
 
                         <p className="text-xs text-[#55645e] mt-0.5">
-                          {isShieldModeActive ? (
+                          {isMinimumModeToday ? (
+                            <span className="text-[#065f46] font-semibold bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 rounded-md inline-block">
+                              ⚡ 2-min: {habit.tinyVersion || 'Do just 2 minutes of this'}
+                            </span>
+                          ) : isShieldModeActive ? (
                             <span className="text-[#1b4332] font-bold bg-[#e8f3ed] px-1.5 py-0.2 rounded">
                               🛡️ 2-Min Shield Target: {habit.minModeVal} {habit.minModeUnit}
                             </span>
@@ -5828,7 +7148,7 @@ function DashboardView({
                       className={`min-mode-pill ${isMin ? 'bg-[#fbe2bd] text-[#b8772a] font-extrabold' : ''}`}
                       title="Complete with 2-minute micro-dose to protect streak"
                     >
-                      <span>⚡ Min: {habit.minModeVal} {habit.minModeUnit}</span>
+                      <span>⚡ {isMinimumModeToday ? (habit.tinyVersion || 'Do just 2 minutes of this') : `Min: ${habit.minModeVal} ${habit.minModeUnit}`}</span>
                     </button>
 
                     <button
@@ -5848,14 +7168,10 @@ function DashboardView({
 
       {/* 7. DAILY CHECK-IN & FOCUS RADAR MINI WIDGETS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2">
-        {/* Daily Check-in Form Card */}
-        <DailyCheckInCard
-          profile={profile}
-          upcomingPressures={upcomingPressures}
+        {/* Today's Check-in Card */}
+        <DashboardCheckInWidget
           checkInStatus={checkInStatus}
-          isHighStressState={isHighStressState}
-          onOpenMiniGames={onOpenMiniGames}
-          onSave={onSaveDailyCheckIn}
+          onOpenCheckIn={onOpenCheckIn}
         />
 
         {/* Focus & Distraction Radar Widget */}
@@ -6202,8 +7518,8 @@ function DistractionTrackerHubView({
               {totalActivityMin === 0
                 ? "No focus or distraction activity logged today. Start a focus session or log an interruption to see your balance."
                 : focusPercent >= 70
-                ? "🌟 Excellent cognitive ratio! You are maintaining strong, continuous study flow."
-                : "💡 Take small 2-minute mindful breathing resets before tasks to keep your focus ratio high."}
+                  ? "🌟 Excellent cognitive ratio! You are maintaining strong, continuous study flow."
+                  : "💡 Take small 2-minute mindful breathing resets before tasks to keep your focus ratio high."}
             </p>
           </div>
         </div>
@@ -6250,9 +7566,8 @@ function DistractionTrackerHubView({
                   <button
                     key={val}
                     onClick={() => setTempGoal(val)}
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all ${
-                      tempGoal === val ? 'bg-indigo-100 text-indigo-900 border-indigo-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all ${tempGoal === val ? 'bg-indigo-100 text-indigo-900 border-indigo-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
                   >
                     {val}m
                   </button>
@@ -6265,9 +7580,8 @@ function DistractionTrackerHubView({
                 <span className="font-bold text-slate-800">
                   Logged: <span className="text-indigo-600 font-extrabold">{todayDistractionMin}m</span> / {goalTarget}m Target
                 </span>
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                  isOverGoal ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                }`}>
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isOverGoal ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  }`}>
                   {isOverGoal ? 'Over Target' : 'Within Target ✓'}
                 </span>
               </div>
@@ -6483,9 +7797,8 @@ function DistractionTrackerHubView({
                 <button
                   key={p}
                   onClick={() => setFilterPeriod(p)}
-                  className={`px-3 py-1 rounded-lg capitalize font-bold text-[11px] transition-all ${
-                    filterPeriod === p ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-3 py-1 rounded-lg capitalize font-bold text-[11px] transition-all ${filterPeriod === p ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
                   {p}
                 </button>
@@ -7030,8 +8343,8 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs font-bold text-[#b8772a] bg-[#fef7ed] px-2.5 py-1 rounded-full border border-[#fbe2bd]">
-                    🔥 {totalStreak} Total Days Streak
+                  <span className="text-xs font-bold text-[#2d6a4f] bg-[#e8f3ed] px-2.5 py-1 rounded-full border border-[#cfe1d7]">
+                    🌱 {linkedHabits.filter(h => h.todayStatus === 'full' || h.todayStatus === 'min').length} / {linkedHabits.length} Active Today
                   </span>
                 </div>
               </div>
@@ -7073,6 +8386,8 @@ function WeeklyReportView({
   distractions = [],
   focusSessions = [],
   distractionGoalMinutes = 45,
+  consistency,
+  resetSessions = [],
   onBack,
   onQuickReset,
   onOpenDistractions
@@ -7085,10 +8400,6 @@ function WeeklyReportView({
   const totalHabits = habits.length;
   const avgStreak = totalHabits ? Math.round(habits.reduce((acc, h) => acc + (h.currentStreak || 0), 0) / totalHabits) : 0;
   const bestHabit = habits.length ? habits.reduce((prev, curr) => ((prev.currentStreak || 0) > (curr.currentStreak || 0) ? prev : curr), habits[0]) : null;
-
-  const consistencyPercent = habits.length > 0 && habits.some(h => (h.currentStreak || 0) > 0)
-    ? Math.min(100, Math.round((habits.reduce((acc, h) => acc + Math.min(7, (h.currentStreak || 0)), 0) / (habits.length * 7)) * 100))
-    : 0;
 
   // 7-day totals for distractions and focus
   const oneWeekAgo = Date.now() - 86400000 * 7;
@@ -7159,14 +8470,22 @@ function WeeklyReportView({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="breathly-card p-4 space-y-1">
           <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Habit Consistency</span>
-          <span className="text-2xl font-black text-[#2d6a4f]">{consistencyPercent > 0 ? `${consistencyPercent}%` : '0%'}</span>
-          <span className="text-[10px] text-[#55645e]">{consistencyPercent > 0 ? `${consistencyPercent}% 7-day adherence` : 'Start habits to build consistency'}</span>
+          <span className="text-2xl font-black text-[#2d6a4f]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.consistencyPercent ?? 0}%`}
+          </span>
+          <span className="text-[10px] text-[#55645e]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} of 7 days • ${consistency?.graceDaysLeft ?? 2} grace days left`}
+          </span>
         </div>
 
         <div className="breathly-card p-4 space-y-1">
-          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Average Streak</span>
-          <span className="text-2xl font-black text-[#1b4332]">{avgStreak} Days</span>
-          <span className="text-[10px] text-[#55645e]">{avgStreak > 0 ? 'Active momentum' : 'No active streak'}</span>
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">7-Day Consistency</span>
+          <span className="text-2xl font-black text-[#1b4332]">
+            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} / 7 Days`}
+          </span>
+          <span className="text-[10px] text-[#55645e]">
+            {consistency?.isEmpty ? 'No habit history yet' : `Grace days left: ${consistency?.graceDaysLeft ?? 2}`}
+          </span>
         </div>
 
         <div className="breathly-card p-4 space-y-1">
@@ -7275,6 +8594,9 @@ function WeeklyReportView({
         </div>
       </div>
 
+      {/* Comparative Reset Effectiveness Breakdown */}
+      <ResetEffectivenessCard resetSessions={resetSessions} />
+
       {/* Baseline vs Real-Time Pattern Synthesis */}
       <div className="breathly-card p-6 space-y-4">
         <h3 className="font-extrabold text-base text-[#18201d] flex items-center gap-2">
@@ -7326,7 +8648,7 @@ function FocusSessionModal({
   const [timeLeft, setTimeLeft] = useState(initialDurationSec);
   const [isRunning, setIsRunning] = useState(true);
   const [hasCompleted, setHasCompleted] = useState(false);
-  
+
   // In-session interruption tracking
   const [sessionDistractions, setSessionDistractions] = useState([]);
   const [showInterruptionDialog, setShowInterruptionDialog] = useState(false);
@@ -7515,9 +8837,8 @@ function FocusSessionModal({
               <button
                 key={s}
                 onClick={() => setAmbientSound(s)}
-                className={`px-2 py-0.5 rounded-lg border font-semibold text-[10px] capitalize transition-all ${
-                  ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+                className={`px-2 py-0.5 rounded-lg border font-semibold text-[10px] capitalize transition-all ${ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
               >
                 {s === 'none' ? 'Mute' : s}
               </button>
@@ -7535,7 +8856,7 @@ function FocusSessionModal({
               <div className="grid grid-cols-2 gap-2 text-slate-700 pt-1">
                 <div>Duration: <span className="font-bold">{Math.round(totalSeconds / 60)} min</span></div>
                 <div>Focus Rate: <span className="font-bold text-emerald-700">
-                  {Math.max(0, Math.min(100, Math.round(((Math.round(totalSeconds/60) - totalInterruptionMinutes) / Math.round(totalSeconds/60)) * 100)))}%
+                  {Math.max(0, Math.min(100, Math.round(((Math.round(totalSeconds / 60) - totalInterruptionMinutes) / Math.round(totalSeconds / 60)) * 100)))}%
                 </span></div>
                 <div>Interruptions: <span className="font-bold">{sessionDistractions.length}</span></div>
                 <div>Distraction Time: <span className="font-bold">{totalInterruptionMinutes}m</span></div>
@@ -7609,9 +8930,8 @@ function FocusSessionModal({
                       <div
                         key={c.id}
                         onClick={() => setInterruptionCategory(c.label)}
-                        className={`p-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
-                          interruptionCategory === c.label ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'
-                        }`}
+                        className={`p-1.5 rounded-xl border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${interruptionCategory === c.label ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
                       >
                         <span>{c.icon}</span>
                         <span className="truncate">{c.label}</span>
@@ -7628,9 +8948,8 @@ function FocusSessionModal({
                         key={m}
                         type="button"
                         onClick={() => setInterruptionDuration(m)}
-                        className={`flex-1 py-1 rounded-lg border font-bold text-[11px] transition-all ${
-                          interruptionDuration === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-700'
-                        }`}
+                        className={`flex-1 py-1 rounded-lg border font-bold text-[11px] transition-all ${interruptionDuration === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
                       >
                         {m}m
                       </button>
@@ -7721,11 +9040,10 @@ function AddDistractionModal({ onSave, onClose }) {
                 <div
                   key={cat.id}
                   onClick={() => setCategory(cat.label)}
-                  className={`p-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all ${
-                    category === cat.label
+                  className={`p-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all ${category === cat.label
                       ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold shadow-2xs'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <span className="text-base">{cat.icon}</span>
                   <span className="truncate">{cat.label}</span>
@@ -7747,9 +9065,8 @@ function AddDistractionModal({ onSave, onClose }) {
                   key={m}
                   type="button"
                   onClick={() => setDurationMinutes(m)}
-                  className={`py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                    durationMinutes === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
+                  className={`py-1.5 rounded-xl border text-xs font-bold transition-all ${durationMinutes === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
                 >
                   {m}m
                 </button>
@@ -7824,6 +9141,9 @@ function BubbleRhythmGame({
   const [feeling, setFeeling] = useState('better'); // 'better' | 'same' | 'stressed'
   const [enjoyment, setEnjoyment] = useState('yes'); // 'yes' | 'little' | 'no'
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+  const [tensionBefore, setTensionBefore] = useState(null);
+  const [tensionAfter, setTensionAfter] = useState(null);
+  const [showPreTensionModal, setShowPreTensionModal] = useState(false);
 
   const canvasRef = useRef(null);
   const animFrameIdRef = useRef(null);
@@ -8298,11 +9618,14 @@ function BubbleRhythmGame({
     const elapsedSeconds = durationSeconds - timeLeft;
     const sessionData = {
       gameName: 'Bubble Rhythm',
+      resetType: 'Bubble Rhythm',
       gameMode,
       rhythmPreset: gameMode === 'rhythm_pop' ? rhythmPreset : null,
       durationSeconds: Math.max(10, elapsedSeconds),
       bubblesPopped,
       completed: true,
+      tensionBefore,
+      tensionAfter,
       feeling,
       enjoyment
     };
@@ -8438,11 +9761,10 @@ function BubbleRhythmGame({
                   key={d.sec}
                   type="button"
                   onClick={() => setDurationSeconds(d.sec)}
-                  className={`py-2 px-1 rounded-xl border text-center transition-all ${
-                    durationSeconds === d.sec
+                  className={`py-2 px-1 rounded-xl border text-center transition-all ${durationSeconds === d.sec
                       ? 'bg-purple-600 border-purple-600 text-white font-extrabold shadow-sm'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <div className="text-xs font-extrabold">{d.label}</div>
                   <div className="text-[10px] opacity-80">{d.desc}</div>
@@ -8458,9 +9780,8 @@ function BubbleRhythmGame({
               <button
                 type="button"
                 onClick={() => setSoundMuted(!soundMuted)}
-                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
-                  !soundMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
-                }`}
+                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${!soundMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
+                  }`}
               >
                 <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
                 <span>Sound FX: {!soundMuted ? 'ON' : 'OFF'}</span>
@@ -8469,9 +9790,8 @@ function BubbleRhythmGame({
               <button
                 type="button"
                 onClick={() => setMusicMuted(!musicMuted)}
-                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
-                  !musicMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
-                }`}
+                className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${!musicMuted ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-400'
+                  }`}
               >
                 <i data-lucide={musicMuted ? 'music-2' : 'music'} className="w-3.5 h-3.5"></i>
                 <span>Rhythm: {!musicMuted ? 'ON' : 'OFF'}</span>
@@ -8481,7 +9801,7 @@ function BubbleRhythmGame({
 
           {/* Start Button */}
           <button
-            onClick={handleStartGame}
+            onClick={() => setShowPreTensionModal(true)}
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
           >
             <i data-lucide="play" className="w-4 h-4"></i>
@@ -8639,23 +9959,38 @@ function BubbleRhythmGame({
             </div>
           </div>
 
-          {/* Question 1: How do you feel now? */}
+          {/* Question 1: How tense are you right now? 1-5 */}
           <div className="space-y-2 text-left">
-            <label className="text-xs font-bold text-slate-800 block">How do you feel now?</label>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 block">How tense are you right now? 1-5</label>
+              <button
+                type="button"
+                onClick={() => setTensionAfter(null)}
+                className={`text-[11px] underline transition-colors cursor-pointer ${tensionAfter === null ? 'text-purple-700 font-bold' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+              >
+                Skip
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
               {[
-                { id: 'better', label: 'Better', emoji: '😊' },
-                { id: 'same', label: 'Same', emoji: '😐' },
-                { id: 'stressed', label: 'Still stressed', emoji: '😔' }
+                { val: 1, label: '1', name: 'Calm', badge: 'hover:bg-emerald-50 text-emerald-800 border-emerald-200' },
+                { val: 2, label: '2', name: 'Mild', badge: 'hover:bg-teal-50 text-teal-800 border-teal-200' },
+                { val: 3, label: '3', name: 'Moderate', badge: 'hover:bg-amber-50 text-amber-800 border-amber-200' },
+                { val: 4, label: '4', name: 'Tense', badge: 'hover:bg-orange-50 text-orange-800 border-orange-200' },
+                { val: 5, label: '5', name: 'Very Tense', badge: 'hover:bg-rose-50 text-rose-800 border-rose-200' }
               ].map(item => (
                 <button
-                  key={item.id}
+                  key={item.val}
                   type="button"
-                  onClick={() => setFeeling(item.id)}
-                  className={`feeling-rating-btn ${feeling === item.id ? 'selected' : ''}`}
+                  onClick={() => setTensionAfter(item.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center cursor-pointer ${tensionAfter === item.val
+                      ? 'bg-purple-600 text-white border-purple-600 font-black shadow-sm'
+                      : 'bg-slate-50 text-slate-700 ' + item.badge
+                    }`}
                 >
-                  <span className="text-xl">{item.emoji}</span>
-                  <span>{item.label}</span>
+                  <span className="text-base font-black">{item.label}</span>
+                  <span className="text-[9px] font-bold leading-tight">{item.name}</span>
                 </button>
               ))}
             </div>
@@ -8710,6 +10045,26 @@ function BubbleRhythmGame({
           </div>
         </div>
       )}
+
+      {/* Pre-game Tension Check Modal */}
+      {showPreTensionModal && (
+        <TensionRatingModal
+          isOpen={true}
+          step="before"
+          resetType="Bubble Rhythm"
+          onSelect={(rating) => {
+            setTensionBefore(typeof rating === 'number' ? rating : null);
+            setShowPreTensionModal(false);
+            handleStartGame();
+          }}
+          onSkip={() => {
+            setTensionBefore(null);
+            setShowPreTensionModal(false);
+            handleStartGame();
+          }}
+          onCancel={() => setShowPreTensionModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -8738,11 +10093,14 @@ function ZenPebbleGame({
   const [feeling, setFeeling] = useState('better');
   const [enjoyment, setEnjoyment] = useState('yes');
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+  const [tensionBefore, setTensionBefore] = useState(null);
+  const [tensionAfter, setTensionAfter] = useState(null);
+  const [showPreTensionModal, setShowPreTensionModal] = useState(false);
 
   const canvasRef = useRef(null);
   const animFrameIdRef = useRef(null);
   const gameStateRef = useRef(gameState);
-  
+
   // Physics & Zen Canvas Refs
   const stonesRef = useRef([]);
   const heldStoneRef = useRef(null);
@@ -9313,12 +10671,15 @@ function ZenPebbleGame({
   const handleFinishAndSave = async () => {
     const elapsedSeconds = durationSeconds - timeLeft;
     const sessionData = {
-      gameName: 'Zen Pebble Garden',
+      gameName: 'Zen Garden',
+      resetType: 'Zen Garden',
       gameMode,
       rhythmPreset: 'zen_harmony',
       durationSeconds: Math.max(10, elapsedSeconds),
       bubblesPopped: stonesPlaced,
       completed: true,
+      tensionBefore,
+      tensionAfter,
       feeling,
       enjoyment
     };
@@ -9424,11 +10785,10 @@ function ZenPebbleGame({
                   key={d.sec}
                   type="button"
                   onClick={() => setDurationSeconds(d.sec)}
-                  className={`py-2.5 px-1 rounded-xl border text-center transition-all ${
-                    durationSeconds === d.sec
+                  className={`py-2.5 px-1 rounded-xl border text-center transition-all ${durationSeconds === d.sec
                       ? 'bg-amber-800 border-amber-800 text-white font-extrabold shadow-sm'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <div className="text-xs font-extrabold">{d.label}</div>
                   <div className="text-[10px] opacity-80">{d.desc}</div>
@@ -9443,9 +10803,8 @@ function ZenPebbleGame({
             <button
               type="button"
               onClick={() => setSoundMuted(!soundMuted)}
-              className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${
-                !soundMuted ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-100 border-slate-200 text-slate-400'
-              }`}
+              className={`px-3 py-1 rounded-lg border font-semibold text-[11px] transition-all flex items-center gap-1 ${!soundMuted ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-100 border-slate-200 text-slate-400'
+                }`}
             >
               <i data-lucide={soundMuted ? 'volume-x' : 'volume-2'} className="w-3.5 h-3.5"></i>
               <span>Singing Bowls & FX: {!soundMuted ? 'ON' : 'OFF'}</span>
@@ -9454,7 +10813,7 @@ function ZenPebbleGame({
 
           {/* Start Button */}
           <button
-            onClick={handleStartGame}
+            onClick={() => setShowPreTensionModal(true)}
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-700 via-amber-800 to-stone-800 hover:from-amber-800 hover:to-stone-900 text-white font-extrabold text-sm shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
           >
             <i data-lucide="play" className="w-4 h-4"></i>
@@ -9674,23 +11033,38 @@ function ZenPebbleGame({
             </div>
           </div>
 
-          {/* Question 1: How do you feel now? */}
+          {/* Question 1: How tense are you right now? 1-5 */}
           <div className="space-y-2 text-left">
-            <label className="text-xs font-bold text-slate-800 block">How do you feel now?</label>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 block">How tense are you right now? 1-5</label>
+              <button
+                type="button"
+                onClick={() => setTensionAfter(null)}
+                className={`text-[11px] underline transition-colors cursor-pointer ${tensionAfter === null ? 'text-amber-800 font-bold' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+              >
+                Skip
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
               {[
-                { id: 'better', label: 'Grounded & Clear', emoji: '🧘' },
-                { id: 'same', label: 'Same', emoji: '😐' },
-                { id: 'stressed', label: 'Still tense', emoji: '😔' }
+                { val: 1, label: '1', name: 'Calm', badge: 'hover:bg-emerald-50 text-emerald-800 border-emerald-200' },
+                { val: 2, label: '2', name: 'Mild', badge: 'hover:bg-teal-50 text-teal-800 border-teal-200' },
+                { val: 3, label: '3', name: 'Moderate', badge: 'hover:bg-amber-50 text-amber-800 border-amber-200' },
+                { val: 4, label: '4', name: 'Tense', badge: 'hover:bg-orange-50 text-orange-800 border-orange-200' },
+                { val: 5, label: '5', name: 'Very Tense', badge: 'hover:bg-rose-50 text-rose-800 border-rose-200' }
               ].map(item => (
                 <button
-                  key={item.id}
+                  key={item.val}
                   type="button"
-                  onClick={() => setFeeling(item.id)}
-                  className={`feeling-rating-btn ${feeling === item.id ? 'selected' : ''}`}
+                  onClick={() => setTensionAfter(item.val)}
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center cursor-pointer ${tensionAfter === item.val
+                      ? 'bg-amber-800 text-white border-amber-800 font-black shadow-sm'
+                      : 'bg-slate-50 text-slate-700 ' + item.badge
+                    }`}
                 >
-                  <span className="text-xl">{item.emoji}</span>
-                  <span className="text-[11px]">{item.label}</span>
+                  <span className="text-base font-black">{item.label}</span>
+                  <span className="text-[9px] font-bold leading-tight">{item.name}</span>
                 </button>
               ))}
             </div>
@@ -9745,6 +11119,26 @@ function ZenPebbleGame({
           </div>
         </div>
       )}
+
+      {/* Pre-game Tension Check Modal */}
+      {showPreTensionModal && (
+        <TensionRatingModal
+          isOpen={true}
+          step="before"
+          resetType="Zen Garden"
+          onSelect={(rating) => {
+            setTensionBefore(typeof rating === 'number' ? rating : null);
+            setShowPreTensionModal(false);
+            handleStartGame();
+          }}
+          onSkip={() => {
+            setTensionBefore(null);
+            setShowPreTensionModal(false);
+            handleStartGame();
+          }}
+          onCancel={() => setShowPreTensionModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -9756,6 +11150,7 @@ function ZenPebbleGame({
 function MiniGamesHubView({
   user,
   gameSessions = [],
+  resetSessions = [],
   isHighStressState = false,
   onLaunchGame,
   onBack,
@@ -9763,7 +11158,7 @@ function MiniGamesHubView({
 }) {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
-  }, [user, gameSessions, isHighStressState]);
+  }, [user, gameSessions, resetSessions, isHighStressState]);
 
   const totalSessions = (gameSessions || []).length;
   const totalDurationSeconds = (gameSessions || []).reduce((acc, s) => acc + (Number(s.duration_seconds || s.durationSeconds) || 0), 0);
@@ -9799,6 +11194,9 @@ function MiniGamesHubView({
         </div>
       </div>
 
+      {/* Reset Effectiveness Comparison Card */}
+      <ResetEffectivenessCard resetSessions={resetSessions} />
+
       {/* Mini Games Library Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Game 1: Bubble Rhythm */}
@@ -9808,9 +11206,8 @@ function MiniGamesHubView({
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-md shadow-purple-500/20">
                 🫧
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
-                isHighStressState ? 'bg-purple-600 text-white animate-pulse' : 'bg-purple-100 text-purple-800 border border-purple-200'
-              }`}>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${isHighStressState ? 'bg-purple-600 text-white animate-pulse' : 'bg-purple-100 text-purple-800 border border-purple-200'
+                }`}>
                 {isHighStressState ? '🎯 Recommended for Your Stress State' : '✨ Featured Reset'}
               </span>
             </div>
@@ -9996,13 +11393,12 @@ function MiniGamesHubView({
                           {Math.round(durationSec / 60)}m ({popped} popped)
                         </span>
 
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          feelingVal === 'better'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${feelingVal === 'better'
                             ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : feelingVal === 'same'
-                            ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                            : 'bg-rose-50 text-rose-800 border border-rose-200'
-                        }`}>
+                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200'
+                          }`}>
                           {feelingVal === 'better' ? '😊 Better' : feelingVal === 'same' ? '😐 Same' : '😔 Stressed'}
                         </span>
                       </div>
@@ -10044,8 +11440,9 @@ function HabitModal({ goals, habit, onSave, onClose }) {
     icon: habit?.icon || '📚',
     targetVal: habit?.targetVal || 30,
     targetUnit: habit?.targetUnit || 'min',
-    minModeVal: habit?.minModeVal || 5,
+    minModeVal: habit?.minModeVal || 2,
     minModeUnit: habit?.minModeUnit || 'min',
+    tinyVersion: habit?.tinyVersion || '',
     preferredTime: habit?.preferredTime || 'evening'
   });
 
@@ -10122,6 +11519,23 @@ function HabitModal({ goals, habit, onSave, onClose }) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-slate-700 font-semibold mb-1">
+              Tiny Version (2-minute version for Rough Days)
+              <span className="text-[10px] text-slate-400 font-normal ml-1.5">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.tinyVersion}
+              onChange={(e) => setFormData({ ...formData, tinyVersion: e.target.value })}
+              placeholder="e.g. Read 1 page, 2 min stretching, take 3 deep breaths"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-indigo-600"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Shown during Minimum Mode on rough days. Defaults to "Do just 2 minutes of this" if left empty.
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">Preferred Time of Day</label>
@@ -10167,6 +11581,58 @@ function HabitModal({ goals, habit, onSave, onClose }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================================
+// 9b. ROUGH DAY CONFIRMATION MODAL (MINIMUM MODE TODAY)
+// ==========================================================================
+
+function RoughDayConfirmModal({ isOpen, onConfirm, onClose }) {
+  useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+      <div className="glass-panel max-w-md w-full rounded-3xl p-6 border border-amber-200 bg-white shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">🌧️</span>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 leading-tight">Rough Day Protection</h3>
+              <p className="text-[11px] text-amber-700 font-medium">Protect your progress with 2-minute micro-habits</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+            <i data-lucide="x" className="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-600 leading-relaxed">
+          Having a rough day? We'll switch today's habits to 2-minute versions so your streaks stay protected without the pressure.
+        </p>
+
+        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-[#f59e0b] hover:bg-[#d97706] text-white shadow-sm transition-colors"
+          >
+            Yes, switch to Minimum Mode
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -10274,10 +11740,10 @@ function RoutineCountdownModal({
   const isMin = mode === 'min';
   const activeModeConfig = THEME_WORK_MODES[theme] || THEME_WORK_MODES.porcelain;
 
-  // Compute duration in seconds based on habit targets
+  // Compute duration in seconds based on habit targets (2 minutes for Minimum Mode)
   const rawTargetVal = isMin ? (habit.minModeVal || 2) : (habit.targetVal || 15);
   const rawUnit = (isMin ? habit.minModeUnit : habit.targetUnit) || 'min';
-  const initialDuration = rawUnit === 'min' ? rawTargetVal * 60 : (rawTargetVal <= 10 ? rawTargetVal * 60 : rawTargetVal);
+  const initialDuration = isMin ? 120 : (rawUnit === 'min' ? rawTargetVal * 60 : (rawTargetVal <= 10 ? rawTargetVal * 60 : rawTargetVal));
 
   const [totalSeconds, setTotalSeconds] = useState(initialDuration);
   const [timeLeft, setTimeLeft] = useState(initialDuration);
@@ -10362,10 +11828,14 @@ function RoutineCountdownModal({
             <span className="text-2xl">{habit.icon || '⚡'}</span>
             <div>
               <h3 className="text-base font-extrabold text-slate-900 leading-tight">{habit.title}</h3>
+              {isMin && (
+                <div className="text-xs text-amber-800 font-semibold mt-0.5">
+                  ⚡ 2-Min Version: {habit.tinyVersion || 'Do just 2 minutes of this'}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  isMin ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-indigo-100 text-indigo-900 border border-indigo-200'
-                }`}>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isMin ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-indigo-100 text-indigo-900 border border-indigo-200'
+                  }`}>
                   {isMin ? '⚡ Minimum Mode' : '🎯 Full Session'}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
@@ -10480,9 +11950,8 @@ function RoutineCountdownModal({
               <button
                 key={s}
                 onClick={() => setAmbientSound(s)}
-                className={`px-2 py-0.5 rounded-lg border font-semibold text-[10px] capitalize transition-all ${
-                  ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+                className={`px-2 py-0.5 rounded-lg border font-semibold text-[10px] capitalize transition-all ${ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
               >
                 {s === 'none' ? 'Mute' : s}
               </button>
@@ -10767,7 +12236,7 @@ function BioFeedbackPulseSensor({ onBpmUpdate }) {
           });
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch(() => { });
             setStreamActive(true);
           }
         }
@@ -10957,9 +12426,8 @@ function BreathingCirclePlayer({ activity, onComplete, onCancel, soundEnabled })
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowBioFeedback(!showBioFeedback)}
-            className={`px-3 py-1 rounded-full text-xs font-bold border transition-all flex items-center gap-1 ${
-              showBioFeedback ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-            }`}
+            className={`px-3 py-1 rounded-full text-xs font-bold border transition-all flex items-center gap-1 ${showBioFeedback ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+              }`}
           >
             <span>🫀 Bio-Feedback</span>
           </button>
@@ -10978,13 +12446,12 @@ function BreathingCirclePlayer({ activity, onComplete, onCancel, soundEnabled })
 
       {/* Visual Breathing Circle */}
       <div className="flex items-center justify-center py-4">
-        <div className={`w-52 h-52 rounded-full border-4 flex items-center justify-center transition-all duration-1000 ${
-          phase === 'inhale' 
-            ? 'scale-125 border-teal-500 bg-teal-50 shadow-[0_0_40px_rgba(13,148,136,0.25)]' 
+        <div className={`w-52 h-52 rounded-full border-4 flex items-center justify-center transition-all duration-1000 ${phase === 'inhale'
+            ? 'scale-125 border-teal-500 bg-teal-50 shadow-[0_0_40px_rgba(13,148,136,0.25)]'
             : phase === 'hold' || phase === 'hold2'
-            ? 'scale-125 border-indigo-500 bg-indigo-50 shadow-[0_0_40px_rgba(79,70,229,0.2)]' 
-            : 'scale-90 border-slate-300 bg-slate-50'
-        }`}>
+              ? 'scale-125 border-indigo-500 bg-indigo-50 shadow-[0_0_40px_rgba(79,70,229,0.2)]'
+              : 'scale-90 border-slate-300 bg-slate-50'
+          }`}>
           <span className="text-lg font-extrabold uppercase tracking-widest text-slate-900">
             {phase === 'hold2' ? 'Hold' : phase}
           </span>
@@ -11357,9 +12824,8 @@ function SettingsModal({
                 key={s}
                 type="button"
                 onClick={() => setAmbientSound(s)}
-                className={`py-2 px-1 rounded-xl border text-center capitalize transition-all ${
-                  ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                className={`py-2 px-1 rounded-xl border text-center capitalize transition-all ${ambientSound === s ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
               >
                 {s === 'none' ? 'Mute' : s}
               </button>

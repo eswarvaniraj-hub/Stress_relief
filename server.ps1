@@ -45,6 +45,10 @@ while ($listener.IsListening) {
 
         $filePath = Join-Path $Root $urlPath
 
+        if (!(Test-Path $filePath -PathType Leaf) -and ![System.IO.Path]::HasExtension($urlPath)) {
+            $filePath = Join-Path $Root "index.html"
+        }
+
         if (Test-Path $filePath -PathType Leaf) {
             $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
             $contentType = "application/octet-stream"

@@ -1,4 +1,4 @@
-90# Dependencies
+# Dependencies
 node_modules/
 **/node_modules/
 
@@ -21,4 +21,3 @@ __pycache__/
 venv/
 backend/ml/models/*.json
 backend/ml/models/*.joblib
-

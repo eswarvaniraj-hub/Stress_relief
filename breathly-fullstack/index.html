@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Breathly — Modern Digital Well-Being & Adaptive Habit Platform</title>
-  <meta name="description" content="Professional digital wellbeing and adaptive habit coach designed with calm aesthetics, early stress detection, and minimum-mode consistency." />
+  <meta name="description"
+    content="Professional digital wellbeing and adaptive habit coach designed with calm aesthetics, early stress detection, and minimum-mode consistency." />
   <meta name="theme-color" content="#f7f8f6" />
 
   <!-- Google Identity Services SDK (Sign in with Google) -->
@@ -13,7 +15,9 @@
   <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -98,16 +102,63 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
+  <!-- Design Tokens -->
+  <link rel="stylesheet" href="src/theme/tokens.css?v=2.0" />
+
   <!-- Custom Design System Styles -->
   <link rel="stylesheet" href="styles.css?v=5.0" />
 </head>
+
 <body class="bg-[#f7f8f6] text-[#18201d] min-h-screen antialiased selection:bg-[#e8f3ed] selection:text-[#1b4332]">
   <div id="root"></div>
 
   <!-- Backend API client (talks to the Express/PostgreSQL backend) -->
   <script src="api.js?v=5.0"></script>
 
+  <!-- Consistency Engine & Grace Days Calculator -->
+  <script src="consistency.js?v=5.0"></script>
+
+  <!-- Reset Tension Telemetry & Effectiveness Analysis -->
+  <script src="resetAnalysis.js?v=5.0"></script>
+
+  <!-- Router & Navigation Stack -->
+  <script src="src/router/router.js?v=2.0"></script>
+
+  <!-- Error Boundary & Global Fallbacks -->
+  <script src="src/components/common/ErrorBoundary.js?v=2.0"></script>
+
+  <!-- Breathly Visual Design System Components -->
+  <script src="src/components/ui/Button.js?v=2.0"></script>
+  <script src="src/components/ui/Card.js?v=2.0"></script>
+  <script src="src/components/ui/Modal.js?v=2.0"></script>
+  <script src="src/components/ui/BottomSheet.js?v=2.0"></script>
+  <script src="src/components/ui/TextInput.js?v=2.0"></script>
+  <script src="src/components/ui/TextArea.js?v=2.0"></script>
+  <script src="src/components/ui/Toast.js?v=2.0"></script>
+  <script src="src/components/ui/Skeleton.js?v=2.0"></script>
+  <script src="src/components/ui/EmptyState.js?v=2.0"></script>
+  <script src="src/components/ui/ErrorState.js?v=2.0"></script>
+  <script src="src/components/ui/ProgressBar.js?v=2.0"></script>
+
+  <!-- Responsive Layout AppShell -->
+  <script src="src/components/layout/AppShell.js?v=2.0"></script>
+
+  <!-- Interventions -->
+  <script src="src/components/interventions/InterventionSheet.js?v=2.0"></script>
+
+  <!-- Pages -->
+  <script src="src/pages/WelcomePage.js?v=2.0"></script>
+  <script src="src/pages/OnboardingPage.js?v=2.0"></script>
+  <script src="src/pages/InsightsPage.js?v=2.0"></script>
+  <script src="src/pages/BreathingPlayerPage.js?v=2.0"></script>
+  <script src="src/pages/BubbleRhythmPage.js?v=2.0"></script>
+  <script src="src/pages/CompanionPage.js?v=2.0"></script>
+  <script src="src/pages/JournalPage.js?v=2.0"></script>
+  <script src="src/pages/ProfileSettingsPage.js?v=2.0"></script>
+  <script src="src/pages/NotFoundPage.js?v=2.0"></script>
+
   <!-- Application Logic -->
   <script type="text/babel" src="app.js?v=5.0"></script>
 </body>
+
 </html>
