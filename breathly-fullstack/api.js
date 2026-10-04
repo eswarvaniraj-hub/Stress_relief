@@ -130,7 +130,10 @@
 
     // Journal & Resets
     listJournal: () => request('/journal'),
+    getJournalEntries: () => request('/journal'),
     createJournalEntry: (content, mood) =>
+      request('/journal', { method: 'POST', body: JSON.stringify({ content, mood }) }),
+    saveJournalEntry: (content, mood) =>
       request('/journal', { method: 'POST', body: JSON.stringify({ content, mood }) }),
     deleteJournalEntry: (id) => request(`/journal/${id}`, { method: 'DELETE' }),
 

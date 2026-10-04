@@ -162,7 +162,8 @@
         }),
 
         !isLoading && entries.map(entry => {
-          const dateStr = entry.created_at ? new Date(entry.created_at).toLocaleDateString(undefined, {
+          const timestamp = entry.created_at || entry.date || entry.createdAt;
+          const dateStr = timestamp ? new Date(timestamp).toLocaleDateString(undefined, {
             weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
           }) : 'Recently';
 

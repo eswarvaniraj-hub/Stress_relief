@@ -18,6 +18,7 @@
   const ROUTES = {
     WELCOME: 'welcome',
     ONBOARDING: 'onboarding',
+    LOGIN: 'login',
     HOME: 'home',
     INSIGHTS: 'insights',
     RESET: 'reset',
@@ -29,7 +30,21 @@
     ZEN_GARDEN: 'zen-garden',
     CHECKIN: 'checkin',
     EXERCISE: 'exercise',
+    DISTRACTIONS: 'distractions',
+    HABITS: 'habits',
+    STRESS: 'stress',
+    GOALS: 'goals',
+    WEEKLY_REPORT: 'weekly-report',
+    COACH: 'coach',
     NOT_FOUND: '404'
+  };
+
+  const ROUTE_ALIASES = {
+    'dashboard': ROUTES.HOME,
+    'landing': ROUTES.WELCOME,
+    'breathing': ROUTES.RESET,
+    'minigames': ROUTES.GAMES,
+    'coach': ROUTES.COMPANION
   };
 
   // Immersive routes that hide navigation shell
@@ -56,10 +71,16 @@
       this.initHashListener();
     }
 
+    normalizeRoute(route) {
+      if (!route) return ROUTES.HOME;
+      const clean = String(route).replace(/^#\/?/, '').replace(/^\//, '').toLowerCase().trim();
+      return ROUTE_ALIASES[clean] || clean;
+    }
+
     getInitialRoute() {
       if (typeof window === 'undefined') return ROUTES.WELCOME;
-      const hash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
-      const path = (window.location.pathname || '').replace(/^\//, '').toLowerCase().trim();
+      const rawHash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+      const hash = this.normalizeRoute(rawHash);
 
       if (hash && Object.values(ROUTES).includes(hash)) return hash;
 
@@ -69,7 +90,8 @@
     initHashListener() {
       if (typeof window === 'undefined') return;
       window.addEventListener('hashchange', () => {
-        const hash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+        const rawHash = (window.location.hash || '').replace(/^#\/?/, '').toLowerCase().trim();
+        const hash = this.normalizeRoute(rawHash);
         if (hash && Object.values(ROUTES).includes(hash) && hash !== this.currentRoute) {
           this.navigate(hash, {}, false);
         }
@@ -78,45 +100,51 @@
 
     /**
      * Resolves the proper route according to route protection rules:
-     * 1. Logged-out -> Welcome (or design-preview)
-     * 2. Logged-in + onboarding incomplete -> Onboarding
-     * 3. Logged-in + onboarding complete -> Target route (or Home)
+     * 1. Onboarding incomplete:
+     *    - If user exists -> Onboarding (or Login if requested)
+     *    - If guest/unauthenticated -> Welcome (or Onboarding / Login if explicitly requested)
+     * 2. Onboarding complete -> Target route (or Home if Welcome/Onboarding/Login requested)
      */
     evaluateRoute(targetRoute, user, profile) {
-      const isAuthenticated = Boolean(user && user.id);
+      const normalizedTarget = this.normalizeRoute(targetRoute);
       const hasCompletedOnboarding = Boolean(profile && profile.isCompleted);
 
-      if (!isAuthenticated) {
+      if (!hasCompletedOnboarding) {
+        if (user) {
+          return normalizedTarget === ROUTES.LOGIN ? ROUTES.LOGIN : ROUTES.ONBOARDING;
+        }
+        if (normalizedTarget === ROUTES.ONBOARDING || normalizedTarget === ROUTES.LOGIN) {
+          return normalizedTarget;
+        }
         return ROUTES.WELCOME;
       }
 
-      if (!hasCompletedOnboarding) {
-        return ROUTES.ONBOARDING;
-      }
-
-      if (targetRoute === ROUTES.WELCOME || targetRoute === ROUTES.ONBOARDING) {
+      if (normalizedTarget === ROUTES.WELCOME || normalizedTarget === ROUTES.ONBOARDING || normalizedTarget === ROUTES.LOGIN) {
         return ROUTES.HOME;
       }
 
-      return Object.values(ROUTES).includes(targetRoute) ? targetRoute : ROUTES.HOME;
+      return Object.values(ROUTES).includes(normalizedTarget) ? normalizedTarget : ROUTES.HOME;
     }
 
     navigate(targetRoute, params = {}, updateHash = true) {
-      if (targetRoute === this.currentRoute && JSON.stringify(params) === JSON.stringify(this.currentParams)) {
+      const normalizedRoute = this.normalizeRoute(targetRoute);
+
+      if (normalizedRoute === this.currentRoute && JSON.stringify(params) === JSON.stringify(this.currentParams)) {
         return;
       }
 
       // Push current to history stack if navigating to a new destination
-      if (this.currentRoute && !this.history.includes(this.currentRoute) && this.currentRoute !== ROUTES.WELCOME) {
+      const lastHistory = this.history[this.history.length - 1];
+      if (this.currentRoute && (!lastHistory || lastHistory.route !== this.currentRoute) && this.currentRoute !== ROUTES.WELCOME && this.currentRoute !== ROUTES.LOGIN) {
         this.history.push({ route: this.currentRoute, params: this.currentParams });
         if (this.history.length > 20) this.history.shift(); // Limit stack size
       }
 
-      this.currentRoute = targetRoute;
+      this.currentRoute = normalizedRoute;
       this.currentParams = params;
 
       if (updateHash && typeof window !== 'undefined') {
-        window.location.hash = `#${targetRoute}`;
+        window.location.hash = `#${normalizedRoute}`;
       }
 
       this.dispatch();

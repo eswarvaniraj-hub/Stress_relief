@@ -10,13 +10,15 @@
 (function () {
   const { createElement: h } = React;
 
-  function NotFoundPage({ onReturnHome }) {
+  function NotFoundPage({ onReturnHome, onGoHome }) {
     const UI = window.BreathlyUI || {};
     const Button = UI.Button;
 
     const handleHome = () => {
       if (onReturnHome) {
         onReturnHome();
+      } else if (onGoHome) {
+        onGoHome();
       } else if (window.BreathlyRouter) {
         window.BreathlyRouter.navigate('home');
       }

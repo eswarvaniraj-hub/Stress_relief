@@ -38,7 +38,7 @@ async function createSession(req, res) {
     const sanitizedMode = validModes.includes(gameMode) ? gameMode : (gameMode ? String(gameMode).slice(0, 50) : 'rhythm_pop');
 
     // Validate feeling
-    const validFeelings = ['better', 'same', 'stressed'];
+    const validFeelings = ['better', 'same', 'stressed', 'worse'];
     const sanitizedFeeling = validFeelings.includes(feeling) ? feeling : null;
 
     // Validate enjoyment

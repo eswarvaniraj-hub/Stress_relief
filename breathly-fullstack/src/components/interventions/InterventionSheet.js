@@ -32,11 +32,11 @@
     if (!intervention) return null;
 
     const handleStart = () => {
-      if (intervention.type === 'breathing') {
+      if (intervention.type === 'breathing' || intervention.type === 'game' || intervention.id === 'bubble-rhythm') {
         if (onStartActivity) onStartActivity(intervention);
         onClose();
       } else {
-        // For non-breathing activities (e.g. walk, connection, screen-free break), show feedback directly after completion
+        // For non-breathing/non-game activities (e.g. walk, connection, screen-free break), show feedback directly after completion
         setIsFeedbackMode(true);
       }
     };

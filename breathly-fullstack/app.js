@@ -1784,6 +1784,24 @@ function App() {
           }
         } catch (e) { }
       }
+
+      // 12. Journal entries from PostgreSQL
+      if (window.api.listJournal) {
+        try {
+          const jRes = await window.api.listJournal();
+          if (jRes && Array.isArray(jRes.entries)) {
+            setAppState(prev => ({
+              ...prev,
+              journalEntries: jRes.entries.map(e => ({
+                id: e.id,
+                content: e.content,
+                mood: e.mood || 'Calm',
+                date: e.created_at
+              }))
+            }));
+          }
+        } catch (e) { }
+      }
     } catch (err) {
       console.warn('Error loading server data:', err);
     }
@@ -1806,8 +1824,14 @@ function App() {
         })
         .catch(() => {
           if (!cancelled) {
-            setUser(null);
-            try { localStorage.removeItem(USER_STORAGE_KEY); } catch (e) { }
+            try {
+              const savedUserStr = localStorage.getItem(USER_STORAGE_KEY);
+              const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+              if (savedUser && !savedUser.isGuest) {
+                setUser(null);
+                localStorage.removeItem(USER_STORAGE_KEY);
+              }
+            } catch (e) { }
           }
         });
     }
@@ -1816,10 +1840,10 @@ function App() {
 
   // Automatically navigate away from login view when user is authenticated
   useEffect(() => {
-    if (user && currentView === 'login') {
-      setCurrentView('dashboard');
+    if (user && (currentView === 'login' || currentView === 'welcome')) {
+      navigate(appState.profile?.isCompleted ? 'home' : 'onboarding');
     }
-  }, [user, currentView]);
+  }, [user, currentView, appState.profile?.isCompleted]);
 
   // Save state (user-isolated so multiple accounts never share data)
   useEffect(() => {
@@ -1888,9 +1912,10 @@ function App() {
   };
 
   const setCurrentView = (v) => {
+    const target = typeof v === 'function' ? v(currentRoute) : v;
     const map = {
       'landing': 'welcome',
-      'login': 'welcome',
+      'login': 'login',
       'dashboard': 'home',
       'checkin': 'checkin',
       'stress': 'insights',
@@ -1908,7 +1933,7 @@ function App() {
       'zen-garden': 'zen-garden',
       'design-preview': 'design-preview'
     };
-    navigate(map[v] || v);
+    navigate(map[target] || target);
   };
   const currentView = currentRoute;
 
@@ -2709,6 +2734,17 @@ function App() {
   const handleCompleteOnboarding = async (profileData) => {
     const newProfile = { ...profileData, isCompleted: true };
 
+    if (!user) {
+      const guestUser = {
+        id: 'guest_' + Date.now(),
+        name: 'Guest Explorer',
+        email: 'Local Session',
+        isGuest: true
+      };
+      setUser(guestUser);
+      try { localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(guestUser)); } catch (e) { }
+    }
+
     // Generate personalized starter habits tailored to their occupation & routine
     const isStudent = (profileData.occupation || '').toLowerCase().includes('student');
     const isBoth = (profileData.occupation || '').toLowerCase().includes('both');
@@ -2835,9 +2871,21 @@ function App() {
 
   // --- REDESIGN INTEGRATION HANDLERS ---
   const handleSaveJournalEntry = async (content, mood) => {
+    let savedId = 'journal-' + Date.now();
+    let createdAt = new Date().toISOString();
+    if (user && (window.api?.saveJournalEntry || window.api?.createJournalEntry)) {
+      try {
+        const fn = window.api.saveJournalEntry || window.api.createJournalEntry;
+        const res = await fn(content, mood);
+        if (res && res.entry) {
+          savedId = res.entry.id;
+          createdAt = res.entry.created_at || createdAt;
+        }
+      } catch (e) { console.warn('Sync journal error:', e); }
+    }
     const newEntry = {
-      id: 'journal-' + Date.now(),
-      date: new Date().toISOString(),
+      id: savedId,
+      date: createdAt,
       content,
       mood: mood || 'Calm'
     };
@@ -2845,18 +2893,30 @@ function App() {
       ...prev,
       journalEntries: [newEntry, ...(prev.journalEntries || [])]
     }));
-    if (user && window.api?.saveJournalEntry) {
-      try {
-        await window.api.saveJournalEntry(content, mood);
-      } catch (e) { console.warn(e); }
-    }
     if (window.BreathlyUI?.toast) {
       window.BreathlyUI.toast.success('Journal reflection saved.');
     }
   };
 
-  const handleBreathingComplete = async ({ durationSec, feeling }) => {
-    const rType = activeResetTypeKey || 'box';
+  const handleDeleteJournalEntry = async (id) => {
+    setAppState(prev => ({
+      ...prev,
+      journalEntries: (prev.journalEntries || []).filter(e => e.id !== id)
+    }));
+    if (user && window.api?.deleteJournalEntry && typeof id === 'number') {
+      try {
+        await window.api.deleteJournalEntry(id);
+      } catch (e) { console.warn('Sync delete journal error:', e); }
+    }
+    if (window.BreathlyUI?.toast) {
+      window.BreathlyUI.toast.info('Journal reflection removed.');
+    }
+  };
+
+  const handleBreathingComplete = async (sessionData = {}) => {
+    const durationSec = sessionData.durationSec || sessionData.durationSeconds || 60;
+    const feeling = sessionData.feeling || 'better';
+    const rType = sessionData.exerciseName || activeResetTypeKey || 'box';
     const newResetRecord = {
       id: 'session-' + Date.now(),
       userId: user?.id || 'local',
@@ -2864,7 +2924,7 @@ function App() {
       resetType: rType,
       category: 'breathing',
       feeling,
-      durationSec: durationSec || 60
+      durationSec
     };
     setAppState(prev => ({
       ...prev,
@@ -2873,13 +2933,18 @@ function App() {
     }));
     if (user && window.api?.createBreathingSession) {
       try {
-        await window.api.createBreathingSession(rType, durationSec || 60);
-      } catch (e) { console.warn(e); }
+        await window.api.createBreathingSession(rType, durationSec);
+      } catch (e) { console.warn('Sync breathing error:', e); }
     }
-    if (user && window.api?.submitFeedback) {
+    if (user && window.api?.completeIntervention && feeling) {
       try {
-        await window.api.submitFeedback({ type: 'breathing', feeling, exercise: rType });
-      } catch (e) { console.warn(e); }
+        await window.api.completeIntervention({
+          interventionType: 'breathing',
+          title: rType,
+          durationSeconds: durationSec,
+          feeling
+        });
+      } catch (e) { console.warn('Sync feedback error:', e); }
     }
     if (window.BreathlyUI?.toast) {
       window.BreathlyUI.toast.success('Reset completed. Great job checking in.');
@@ -2888,7 +2953,10 @@ function App() {
   };
 
   const handleGameComplete = async (gameData) => {
-    handleSaveGameSession(gameData);
+    handleSaveGameSession({
+      ...gameData,
+      feeling: gameData.feeling || gameData.feedback || 'better'
+    });
     if (window.BreathlyUI?.toast) {
       window.BreathlyUI.toast.success('Mindful session recorded.');
     }
@@ -2943,15 +3011,41 @@ function App() {
   const NotFoundComp = window.BreathlyUI?.NotFoundPage;
 
   // Phase 3: Redesigned Welcome Screen for Unauthenticated Visitors
-  if (currentRoute === 'welcome' || (!user && currentRoute !== 'onboarding' && currentRoute !== 'login')) {
+  const hasCompletedOnboarding = Boolean(appState.profile?.isCompleted);
+  if (currentRoute === 'welcome' || (!user && !hasCompletedOnboarding && currentRoute !== 'onboarding' && currentRoute !== 'login')) {
     const WelcomeComp = window.BreathlyUI?.WelcomePage;
     if (WelcomeComp) {
       return (
         <ErrorBoundaryComp>
           <WelcomeComp
             onStartJourney={() => navigate('onboarding')}
-            onGoogleSignIn={() => navigate('login')}
+            onGoogleSignIn={() => {
+              if (window.google?.accounts?.id && googleClientId) {
+                try {
+                  window.google.accounts.id.initialize({
+                    client_id: googleClientId,
+                    callback: handleGoogleSuccess,
+                    auto_select: false,
+                    cancel_on_tap_outside: true
+                  });
+                  window.google.accounts.id.prompt((notification) => {
+                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                      navigate('login');
+                    }
+                  });
+                  return;
+                } catch (e) {
+                  console.warn('GIS One-Tap error:', e);
+                }
+              }
+              navigate('login');
+            }}
             onContinueAsGuest={() => {
+              if (!user) {
+                const guestUser = { id: 'guest_' + Date.now(), name: 'Guest Explorer', email: 'Local Session', isGuest: true };
+                setUser(guestUser);
+                try { localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(guestUser)); } catch (e) { }
+              }
               navigate(appState.profile?.isCompleted ? 'home' : 'onboarding');
             }}
             onQuickReset={() => {
@@ -2962,6 +3056,31 @@ function App() {
         </ErrorBoundaryComp>
       );
     }
+  }
+
+  // Dedicated Google OAuth Sign-In Screen
+  if (currentRoute === 'login') {
+    return (
+      <ErrorBoundaryComp>
+        <LoginView
+          user={user}
+          googleClientId={googleClientId}
+          setGoogleClientId={setGoogleClientId}
+          onGoogleSuccess={handleGoogleSuccess}
+          onContinueAsGuest={() => {
+            if (!user) {
+              const guestUser = { id: 'guest_' + Date.now(), name: 'Guest Explorer', email: 'Local Session', isGuest: true };
+              setUser(guestUser);
+              try { localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(guestUser)); } catch (e) { }
+            }
+            navigate(appState.profile?.isCompleted ? 'home' : 'onboarding');
+          }}
+          onBack={() => navigate('welcome')}
+          authLoading={authLoading}
+          authError={authError}
+        />
+      </ErrorBoundaryComp>
+    );
   }
 
   // Phase 3: Redesigned Onboarding Step-by-Step Flow
@@ -3096,6 +3215,7 @@ function App() {
               <JournalComp
                 entries={appState.journalEntries || []}
                 onSaveEntry={handleSaveJournalEntry}
+                onDeleteEntry={handleDeleteJournalEntry}
               />
             ) : (
               <JournalHubView
@@ -3348,7 +3468,7 @@ function App() {
           )}
 
           {!['home', 'insights', 'reset', 'journal', 'profile', 'companion', 'bubble-rhythm', 'exercise', 'games', 'zen-garden', 'distractions', 'checkin', 'habits', 'stress', 'goals', 'weekly-report', 'coach'].includes(currentRoute) && (
-            NotFoundComp ? <NotFoundComp onGoHome={() => navigate('home')} /> : (
+            NotFoundComp ? <NotFoundComp onReturnHome={() => navigate('home')} onGoHome={() => navigate('home')} /> : (
               <div className="py-12 text-center">
                 <h2 className="text-xl font-bold">Page not found</h2>
                 <button onClick={() => navigate('home')} className="mt-4 px-4 py-2 rounded-xl bg-[#1b4332] text-white">Return Home</button>
@@ -3368,8 +3488,12 @@ function App() {
           intervention={activeSelectedIntervention}
           onStartActivity={(itv) => {
             if (itv.type === 'breathing') {
-              setActiveResetTypeKey('box');
+              const resetKey = itv.id?.replace('breathing-', '') || 'box';
+              setActiveResetTypeKey(resetKey);
               navigate('exercise');
+            } else if (itv.type === 'game' || itv.id === 'bubble-rhythm') {
+              setSelectedMiniGameMode('rhythm_pop');
+              navigate('bubble-rhythm');
             }
           }}
           onSaveFeedback={handleSaveInterventionFeedback}
@@ -7731,7 +7855,7 @@ function DistractionTrackerHubView({
               <span>Distraction & Stress Synergy</span>
             </div>
             <p className="leading-relaxed text-slate-600">
-              {earlySignals.distractionStressCorrelation ||
+              {earlySignals?.distractionStressCorrelation ||
                 "Tracking shows that taking intentional micro-breaks instead of involuntary multi-tasking prevents cognitive fatigue and elevates daily consistency."}
             </p>
           </div>
@@ -8202,7 +8326,7 @@ function CoachView({
                 {m.actionType === 'min-mode-all' && (
                   <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
                     <button
-                      onClick={onActivateMinModeAll}
+                      onClick={() => onActivateMinModeAll && onActivateMinModeAll()}
                       className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
                     >
                       <span>⚡ Switch All to Minimum Mode</span>
@@ -8376,6 +8500,57 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
 }
 
 // ==========================================================================
+// 7B. RESET EFFECTIVENESS CARD COMPONENT
+// ==========================================================================
+
+function ResetEffectivenessCard({ resetSessions = [] }) {
+  const insights = typeof calculateResetInsights === 'function'
+    ? calculateResetInsights(resetSessions)
+    : { totalSessions: 0, rankedTypes: [] };
+
+  const hasData = (insights.totalSessions || 0) > 0;
+
+  return (
+    <div className="p-5 sm:p-6 rounded-3xl border border-slate-200 bg-white shadow-xs space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 text-sm">
+            📊
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 leading-tight">Reset Effectiveness</h3>
+            <p className="text-[11px] text-slate-500">Based on your before-and-after tension scores</p>
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+          <p className="text-xs text-slate-600 font-medium">
+            Try a few resets and rate them to see what works best for you.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(insights.rankedTypes || []).slice(0, 3).map((item, idx) => (
+            <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-800">{item.resetType}</span>
+              <span className="text-slate-600">
+                {item.hasSufficientData ? (
+                  item.avgDrop > 0 ? `Tension dropped by ${item.avgDrop} pts` : `Maintained steady state`
+                ) : (
+                  `${item.totalCount} session${item.totalCount > 1 ? 's' : ''} logged`
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================================================
 // 8. WEEKLY INTELLIGENCE REPORT VIEW
 // ==========================================================================
 
@@ -8450,7 +8625,7 @@ function WeeklyReportView({
             <span>Focus Radar</span>
           </button>
           <button
-            onClick={() => onQuickReset(earlySignals.recommendedActivity)}
+            onClick={() => onQuickReset && onQuickReset(earlySignals?.recommendedActivity)}
             className="btn-primary py-1.5 px-3 text-xs"
           >
             <i data-lucide="wind" className="w-3.5 h-3.5"></i>
@@ -8608,7 +8783,7 @@ function WeeklyReportView({
           <div className="p-3.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6]">
             <div className="font-bold text-[#18201d] mb-1">1. Lifestyle Baseline Alignment</div>
             <p className="text-[#55645e] leading-relaxed">
-              Your normal baseline is {earlySignals.baseline.hours} daily workload and {earlySignals.baseline.sleep} sleep. {earlySignals.gentleNudge}
+              Your normal baseline is {earlySignals?.baseline?.hours || 'standard'} daily workload and {earlySignals?.baseline?.sleep || 'healthy'} sleep. {earlySignals?.gentleNudge || ''}
             </p>
           </div>
 

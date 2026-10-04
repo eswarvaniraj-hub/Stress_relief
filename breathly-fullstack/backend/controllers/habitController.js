@@ -113,4 +113,24 @@ async function listFailures(req, res) {
   }
 }
 
-module.exports = { listHabits, createHabit, updateHabit, deleteHabit, logHabitFailure, listFailures };
+// POST /api/habits/:id/complete
+async function completeHabit(req, res) {
+  try {
+    const habitId = req.params.id;
+    const { rows } = await pool.query(
+      `UPDATE user_habits
+       SET current_streak = current_streak + 1,
+           best_streak = GREATEST(best_streak, current_streak + 1)
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [habitId, req.userId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Habit not found' });
+    res.json({ success: true, habit: rows[0] });
+  } catch (err) {
+    console.error('Complete habit error:', err);
+    res.status(500).json({ error: 'Could not complete habit' });
+  }
+}
+
+module.exports = { listHabits, createHabit, updateHabit, completeHabit, deleteHabit, logHabitFailure, listFailures };

@@ -118,12 +118,14 @@
             durationSeconds: Math.max(30, totalElapsed),
             feeling: feedback
           });
+        } else if (onExit) {
+          onExit();
         }
       } catch (e) {
         console.warn('Session save notice:', e);
+        if (onExit) onExit();
       } finally {
         setIsSaving(false);
-        if (onExit) onExit();
       }
     };
 

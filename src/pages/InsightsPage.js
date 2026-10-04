@@ -34,9 +34,26 @@
     const [dismissedRecs, setDismissedRecs] = useState([]);
     const [chartLoaded, setChartLoaded] = useState(false);
 
-    // Filter active recommendations (excluding skipped ones)
+    // Filter active recommendations (supporting backend object or list structure)
     const activeRecs = useMemo(() => {
-      const list = recommendations && recommendations.length > 0 ? recommendations : [
+      let rawList = [];
+      if (Array.isArray(recommendations)) {
+        rawList = recommendations;
+      } else if (recommendations?.recommendations) {
+        const { primary, alternatives } = recommendations.recommendations;
+        rawList = [primary, ...(alternatives || [])].filter(Boolean);
+      } else if (recommendations?.primary) {
+        rawList = [recommendations.primary, ...(recommendations.alternatives || [])].filter(Boolean);
+      }
+
+      const list = rawList.length > 0 ? rawList.map(r => ({
+        id: r.id || r.type || r.title,
+        title: r.title,
+        durationMinutes: r.durationMinutes || r.durationMin || r.defaultDurationMin || 3,
+        reason: r.reason || r.personalizedReason || r.description || 'Designed to shift autonomic arousal and relieve mental friction.',
+        icon: r.icon === 'wind' ? '🌬️' : r.icon === 'footprints' ? '🚶' : r.icon === 'gamepad-2' ? '🫧' : r.icon === 'users' ? '🤝' : (r.icon || '🌿'),
+        type: r.type || 'breathing'
+      })) : [
         {
           id: 'breathing-426',
           title: '4-2-6 Calming Flow',

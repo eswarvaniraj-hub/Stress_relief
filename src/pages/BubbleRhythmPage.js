@@ -196,12 +196,14 @@
             bubblesPopped: score,
             feeling: feedback
           });
+        } else if (onExit) {
+          onExit();
         }
       } catch (err) {
         console.warn('Game session save notice:', err);
+        if (onExit) onExit();
       } finally {
         setIsSaving(false);
-        if (onExit) onExit();
       }
     };
 
