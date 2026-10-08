@@ -1,15 +1,15 @@
 /**
- * Breathly - Forgiving Habit Consistency & Grace Days Engine
+ * Breathly - Forgiving Routine Consistency & Grace Days Engine
  * 
  * Replaces harsh all-or-nothing daily streaks with a forgiving rolling 7-day consistency measure.
  * 
  * Core Rules:
- * 1. Each day counts as completed if the user completed at least one habit
+ * 1. Each day counts as completed if the user completed at least one routine
  *    (including the 2-minute tiny version on a Rough Day).
  * 2. Every user gets 2 grace days per week. A missed day uses a grace day
  *    automatically and does NOT reduce the count shown.
  * 3. Shows "Grace days left this week: N" (where N is 2 minus grace days used).
- * 4. Empty state: If a user has no habits or no history, shows "Add a habit to start"
+ * 4. Empty state: If a user has no routines or no history, shows "Add a routine to start"
  *    instead of 0%.
  * 5. Generates 12-month activity heatmap data distinguishing regular completed days,
  *    Rough Days (lighter green), grace days (soft gold), and missed days (gray).
@@ -41,14 +41,14 @@
       return {
         hasData: false,
         isEmpty: true,
-        displayScore: 'Add a habit to start',
-        consistencyRatio: 'Add a habit to start',
+        displayScore: 'Add a routine to start',
+        consistencyRatio: 'Add a routine to start',
         effectiveCount: 0,
         completedDaysCount: 0,
         graceDaysUsed: 0,
         graceDaysLeft: 2,
         consistencyPercent: 0,
-        statusText: 'Add a habit to start',
+        statusText: 'Add a routine to start',
         days: []
       };
     }
@@ -68,19 +68,19 @@
 
     const totalCompletedDaysEver = historyDates.length + (hasTodayCompletedInHabits ? 1 : 0);
 
-    // Rule 5: If a user has no habits or no history, show "Add a habit to start" and not 0%
+    // Rule 5: If a user has no routines or no history, show "Add a routine to start" and not 0%
     if (habits.length === 0 || (totalCompletedDaysEver === 0 && !appState.lastActiveDate)) {
       return {
         hasData: false,
         isEmpty: true,
-        displayScore: 'Add a habit to start',
-        consistencyRatio: 'Add a habit to start',
+        displayScore: 'Add a routine to start',
+        consistencyRatio: 'Add a routine to start',
         effectiveCount: 0,
         completedDaysCount: 0,
         graceDaysUsed: 0,
         graceDaysLeft: 2,
         consistencyPercent: 0,
-        statusText: 'Add a habit to start',
+        statusText: 'Add a routine to start',
         days: []
       };
     }
@@ -230,7 +230,7 @@
           label = 'Rough Day (2-min version completed)';
         } else {
           status = 'completed';
-          label = 'Completed habit';
+          label = 'Completed routine';
         }
       }
 

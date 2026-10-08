@@ -181,7 +181,7 @@
         }),
         h('div', { className: 'space-y-3 text-xs text-[#55645e] leading-relaxed' }, [
           h('p', null,
-            'Breathly stores your habit completions and check-ins securely. Your personal reflections remain completely private.'
+            'Breathly stores your routine completions and check-ins securely. Your personal reflections remain completely private.'
           ),
           h('div', { className: 'pt-2 flex items-center justify-between' }, [
             h('span', null, 'Clear all stored local session data:'),

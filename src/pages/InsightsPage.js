@@ -152,7 +152,7 @@
         h('p', { className: 'text-xs sm:text-sm text-[#55645e]' },
           isUsingBaseline
             ? 'Since you’re just getting started, your insights currently reflect your onboarding baseline.'
-            : 'Derived strictly from your real check-ins, habit logs, and reset feedback.'
+            : 'Derived strictly from your real check-ins, routine logs, and reset feedback.'
         )
       ]),
 

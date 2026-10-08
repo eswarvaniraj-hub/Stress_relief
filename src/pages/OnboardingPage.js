@@ -115,7 +115,7 @@
           return h('div', { className: 'space-y-4' }, [
             h('div', { className: 'space-y-1' }, [
               h('h2', { className: 'text-xl sm:text-2xl font-bold text-[#18201d] font-heading' }, 'How does your typical day look?'),
-              h('p', { className: 'text-xs sm:text-sm text-[#55645e]' }, 'We use this to align your habits with your natural energy rhythm.')
+              h('p', { className: 'text-xs sm:text-sm text-[#55645e]' }, 'We use this to align your routines with your natural energy rhythm.')
             ]),
             h('div', { className: 'space-y-3 pt-2' }, [
               h('label', { className: 'block text-xs font-semibold text-[#18201d]' }, 'Typical study/work hours per day:'),
@@ -291,7 +291,7 @@
             h('div', { className: 'space-y-1.5' }, [
               h('h2', { className: 'text-2xl sm:text-3xl font-extrabold text-[#18201d] font-heading' }, 'You’re all set.'),
               h('p', { className: 'text-xs sm:text-sm text-[#55645e] max-w-sm mx-auto' },
-                'Breathly is calibrated to your rhythm. Remember: even 2-minute micro-habits protect your consistency.'
+                'Breathly is calibrated to your rhythm. Remember: even 2-minute micro-routines protect your consistency.'
               )
             ]),
             h('div', { className: 'p-4 rounded-xl bg-white border border-[#e2e8e4] text-left text-xs space-y-2 max-w-md mx-auto shadow-xs' }, [

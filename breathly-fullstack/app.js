@@ -22,11 +22,11 @@ const THEME_WORK_MODES = {
     badge: '🎯 Deep Focus Mode',
     icon: '🎯',
     color: '#4f46e5',
-    tagline: 'Standard target habit pacing & high-contrast daytime focus',
+    tagline: 'Standard target routine pacing & high-contrast daytime focus',
     recommendedAmbient: 'none',
     recommendedReset: 'breathing-426',
     encouragementFlavor: 'Precision focus and steady daily execution.',
-    workDescription: 'Daytime productivity mode: Full duration habit blocks, active study/work tracking & balanced energy.'
+    workDescription: 'Daytime productivity mode: Full duration routine blocks, active study/work tracking & balanced energy.'
   },
   sage: {
     id: 'sage',
@@ -1030,7 +1030,7 @@ function evaluateEarlyStressSignals(appState, recentCheckIns = []) {
   }
 
   if (fatigueSkips.length >= 2) {
-    riskSignals.push(`${fatigueSkips.length} habit friction logs due to fatigue`);
+    riskSignals.push(`${fatigueSkips.length} routine friction logs due to fatigue`);
     score -= 10;
   }
 
@@ -1077,19 +1077,19 @@ function evaluateEarlyStressSignals(appState, recentCheckIns = []) {
     if (isStudent && upcomingNearPressures.length > 0) {
       gentleNudge = 'Your recent pattern looks more demanding than usual with upcoming exams. Would you like to take a 2-minute focus reset?';
       recommendedActivity = ACTIVITIES['breathing-box'] || ACTIVITIES['breathing-426'];
-      tacticalAdvice = 'Use Minimum Mode on secondary habits and protect your sleep boundary tonight.';
+      tacticalAdvice = 'Use Minimum Mode on secondary routines and protect your sleep boundary tonight.';
     } else if (recentSleepDeficit) {
       gentleNudge = 'Your recent pattern shows lighter sleep than your normal baseline. A restorative wind-down will help recharge your energy.';
       recommendedActivity = ACTIVITIES['breathing-478'] || ACTIVITIES['breathing-426'];
-      tacticalAdvice = 'Prioritize an early night. Scale habit targets down to 2-minute micro-doses.';
+      tacticalAdvice = 'Prioritize an early night. Scale routine targets down to 2-minute micro-doses.';
     } else if (recentWorkloadSpike) {
       gentleNudge = 'You have had a more demanding few days than usual. A 2-minute decompression reset will help steady your momentum.';
       recommendedActivity = ACTIVITIES['breathing-sigh'] || ACTIVITIES['breathing-426'];
-      tacticalAdvice = 'Activate Minimum Mode for today’s habits so your streaks stay protected without burnout.';
+      tacticalAdvice = 'Activate Minimum Mode for today’s routines so your streaks stay protected without burnout.';
     } else {
       gentleNudge = 'Your recent pattern suggests you could benefit from a break. Take things one small step at a time today.';
       recommendedActivity = ACTIVITIES['breathing-426'];
-      tacticalAdvice = 'Lighten your expectations today. Focus only on 1 core habit.';
+      tacticalAdvice = 'Lighten your expectations today. Focus only on 1 core routine.';
     }
   } else if (score < 68) {
     statusLevel = 'elevated';
@@ -1292,8 +1292,8 @@ function generateAIInsights(appState) {
     const mostCommon = reasons.sort((a, b) => reasons.filter(v => v === a).length - reasons.filter(v => v === b).length).pop();
     insights.push({
       icon: 'compass',
-      title: 'Habit Obstacle Pattern',
-      text: `Your most frequent habit hurdle is "${mostCommon}". Minimum Mode helps protect your streak during heavy days.`
+      title: 'Routine Obstacle Pattern',
+      text: `Your most frequent routine hurdle is "${mostCommon}". Minimum Mode helps protect your streak during heavy days.`
     });
   } else {
     insights.push({
@@ -1400,7 +1400,7 @@ function calculateFrictionForecast(appState) {
     frictionScore += Math.min(20, recentFailures.length * 8);
     factors.push({
       icon: 'shield-alert',
-      title: `${recentFailures.length} Habit Friction Notes`,
+      title: `${recentFailures.length} Routine Friction Notes`,
       detail: 'Obstacles logged in the past 72 hours indicate schedule friction.'
     });
   }
@@ -1410,7 +1410,7 @@ function calculateFrictionForecast(appState) {
   let level = 'low';
   let levelTitle = 'Optimal Flow (Low Friction)';
   let levelColor = '#10b981';
-  let description = 'Workload and recovery signals are balanced. Standard target habit pacing is sustainable.';
+  let description = 'Workload and recovery signals are balanced. Standard target routine pacing is sustainable.';
   let shouldRecommendShield = false;
 
   if (frictionScore >= 65) {
@@ -1423,7 +1423,7 @@ function calculateFrictionForecast(appState) {
     level = 'elevated';
     levelTitle = 'Elevated Friction (Building Pressure)';
     levelColor = '#f59e0b';
-    description = 'Demands are rising. Consider switching habits to Minimum Mode or activating the Burnout Shield.';
+    description = 'Demands are rising. Consider switching routines to Minimum Mode or activating the Burnout Shield.';
     shouldRecommendShield = true;
   }
 
@@ -1746,7 +1746,7 @@ function App() {
               ? failRes.failures.map(f => ({
                 id: f.id,
                 habitId: f.habit_id,
-                habitTitle: f.habit_id ? 'Habit #' + f.habit_id : 'Habit',
+                habitTitle: f.habit_id ? 'Routine #' + f.habit_id : 'Routine',
                 timestamp: new Date(f.logged_at).getTime(),
                 reason: f.reason,
                 note: f.note
@@ -2041,14 +2041,14 @@ function App() {
     return {
       hasData: false,
       isEmpty: true,
-      displayScore: 'Add a habit to start',
-      consistencyRatio: 'Add a habit to start',
+      displayScore: 'Add a routine to start',
+      consistencyRatio: 'Add a routine to start',
       effectiveCount: 0,
       completedDaysCount: 0,
       graceDaysUsed: 0,
       graceDaysLeft: 2,
       consistencyPercent: 0,
-      statusText: 'Add a habit to start',
+      statusText: 'Add a routine to start',
       days: []
     };
   }, [appState, todayStr]);
@@ -2442,7 +2442,7 @@ function App() {
     const newLog = {
       id: 'fail-' + Date.now(),
       habitId,
-      habitTitle: habit ? habit.title : 'Habit',
+      habitTitle: habit ? habit.title : 'Routine',
       timestamp: Date.now(),
       reason,
       note
@@ -2511,7 +2511,7 @@ function App() {
   };
 
   const handleDeleteHabit = async (habitId) => {
-    if (window.confirm('Delete this habit?')) {
+    if (window.confirm('Delete this routine?')) {
       setAppState(prev => ({
         ...prev,
         habits: prev.habits.filter(h => h.id !== habitId)
@@ -3620,7 +3620,7 @@ function App() {
           profile={appState.profile}
           appState={appState}
           onWipeData={() => {
-            if (window.confirm('Wipe all local personal profile & habit data?')) {
+            if (window.confirm('Wipe all local personal profile & routine data?')) {
               setAppState(DEFAULT_INITIAL_STATE);
               setShowPrivacyModal(false);
               setCurrentView('landing');
@@ -3647,7 +3647,7 @@ function App() {
           setAmbientSound={(s) => setAppState(prev => ({ ...prev, ambientSound: s }))}
           onRedoOnboarding={() => { setShowSettingsModal(false); setCurrentView('onboarding'); }}
           onClearData={() => {
-            if (window.confirm('Reset all your local coach and habit logs?')) {
+            if (window.confirm('Reset all your local coach and routine logs?')) {
               setAppState(DEFAULT_INITIAL_STATE);
               setShowSettingsModal(false);
               setCurrentView('landing');
@@ -3693,7 +3693,7 @@ function SidebarNav({
     { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
     { id: 'checkin', label: 'Check-in', icon: 'clipboard-check', badge: checkInStatus?.hasCheckedInToday ? 'Done' : 'Pending' },
     { id: 'stress', label: 'Stress', icon: 'shield-alert', badge: earlySignals?.statusLevel === 'elevated' || earlySignals?.statusLevel === 'demanding' ? 'Alert' : null },
-    { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
+    { id: 'habits', label: 'Routines', icon: 'check-circle-2' },
     { id: 'breathing', label: 'Breathing', icon: 'wind' },
     { id: 'journal', label: 'Journal', icon: 'book-open' },
     { id: 'goals', label: 'Goals', icon: 'target' },
@@ -3870,7 +3870,7 @@ function TopHeaderBar({
     dashboard: 'Daily Wellbeing Overview',
     checkin: 'Daily 20-Second Check-in',
     stress: 'Stress Protection & Early Signals',
-    habits: 'Habit Consistency & Micro-Doses',
+    habits: 'Routine Consistency & Micro-Doses',
     breathing: 'Breathing Space & Guided Resets',
     journal: 'Daily Reflection & Journal',
     goals: 'Active Well-Being Goals',
@@ -3970,7 +3970,7 @@ function MobileBottomNav({ currentView, setCurrentView, onOpenMore }) {
     { id: 'dashboard', label: 'Today', icon: 'layout-dashboard' },
     { id: 'checkin', label: 'Check-in', icon: 'clipboard-check' },
     { id: 'stress', label: 'Stress', icon: 'shield-alert' },
-    { id: 'habits', label: 'Habits', icon: 'check-circle-2' },
+    { id: 'habits', label: 'Routines', icon: 'check-circle-2' },
     { id: 'profile', label: 'More', icon: 'menu' }
   ];
 
@@ -4088,10 +4088,10 @@ function StressHubView({
               <span>Burnout Shield</span>
             </div>
             <h4 className="text-base font-bold text-[#18201d]">
-              {isShieldModeActive ? 'Shield Mode Active' : 'Preemptive Habit Shield'}
+              {isShieldModeActive ? 'Shield Mode Active' : 'Preemptive Routine Shield'}
             </h4>
             <p className="text-xs text-[#55645e] leading-relaxed">
-              When activated, habits automatically scale down to 2-minute Minimum Mode micro-doses. Your streaks remain protected without fatigue.
+              When activated, routines automatically scale down to 2-minute Minimum Mode micro-doses. Your streaks remain protected without fatigue.
             </p>
           </div>
 
@@ -4128,7 +4128,7 @@ function StressHubView({
             </div>
             <div className="empty-state-title">No upcoming pressure events</div>
             <p className="empty-state-desc">
-              Log upcoming exams, heavy work deadlines, or travel so Breathly can adjust habit targets in advance.
+              Log upcoming exams, heavy work deadlines, or travel so Breathly can adjust routine targets in advance.
             </p>
             <button onClick={onAddPressure} className="btn-primary text-xs mt-2">
               <span>Plan an Event</span>
@@ -4248,7 +4248,7 @@ function CheckInView({
           {existingToday ? "Update Today's Check-in" : "Daily Check-in"}
         </h1>
         <p className="text-xs sm:text-sm text-[#55645e] mt-1">
-          Based on your check-ins, Breathly personalizes your Wellbeing Index and daily habit pacing.
+          Based on your check-ins, Breathly personalizes your Wellbeing Index and daily routine pacing.
         </p>
       </div>
 
@@ -4517,7 +4517,7 @@ function DashboardCheckInWidget({ checkInStatus, onOpenCheckIn }) {
         ) : (
           <div className="space-y-1.5 pt-1">
             <p className="text-xs text-[#55645e] leading-relaxed">
-              Take 20 seconds to log how you feel. Your answers calculate your Wellbeing Index and adapt your daily habit pacing.
+              Take 20 seconds to log how you feel. Your answers calculate your Wellbeing Index and adapt your daily routine pacing.
             </p>
           </div>
         )}
@@ -4580,7 +4580,7 @@ function ActivityHeatmap({ appState, consistency }) {
 
         <div className="flex items-center gap-2 self-start sm:self-center">
           <span className="text-xs font-bold text-[#1b4332] bg-[#e8f3ed] px-2.5 py-1 rounded-full border border-[#cfe1d7]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
           </span>
         </div>
       </div>
@@ -4689,7 +4689,7 @@ function HabitsHubView({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Habits & Consistency</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Routines & Consistency</h1>
           <p className="text-xs sm:text-sm text-[#55645e] mt-0.5">
             Adaptive micro-dosing ensures you make daily progress without friction or burnout.
           </p>
@@ -4698,7 +4698,7 @@ function HabitsHubView({
         <div className="flex items-center gap-2">
           <button onClick={onAddHabit} className="btn-primary text-xs">
             <i data-lucide="plus" className="w-3.5 h-3.5"></i>
-            <span>Add Habit</span>
+            <span>Add Routine</span>
           </button>
         </div>
       </div>
@@ -4712,12 +4712,12 @@ function HabitsHubView({
         </div>
 
         <div className="metric-card-clean">
-          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Habit Consistency</div>
+          <div className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Routine Consistency</div>
           <div className="text-2xl font-extrabold text-[#2d6a4f]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} of 7 Days`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `${consistency?.effectiveCount ?? 0} of 7 Days`}
           </div>
           <div className="text-[11px] text-[#55645e]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
           </div>
         </div>
 
@@ -4761,12 +4761,12 @@ function HabitsHubView({
           <div className="empty-state-icon">
             <i data-lucide="sparkles" className="w-6 h-6"></i>
           </div>
-          <div className="empty-state-title">No habits in this category yet</div>
+          <div className="empty-state-title">No routines in this category yet</div>
           <p className="empty-state-desc">
-            Build steady momentum with a simple 2-minute minimum mode habit.
+            Build steady momentum with a simple 2-minute minimum mode routine.
           </p>
           <button onClick={onAddHabit} className="btn-primary text-xs mt-1">
-            <span>Add Your First Habit</span>
+            <span>Add Your First Routine</span>
           </button>
         </div>
       ) : (
@@ -4825,7 +4825,7 @@ function HabitsHubView({
                     <button
                       onClick={() => onEditHabit(habit)}
                       className="p-1 text-[#82928b] hover:text-[#18201d] transition-colors"
-                      title="Edit Habit"
+                      title="Edit Routine"
                     >
                       <i data-lucide="more-horizontal" className="w-4 h-4"></i>
                     </button>
@@ -5094,7 +5094,7 @@ function ProfileHubView({
           <div className="p-4 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="font-bold text-sm text-[#18201d]">Guest Session</div>
-              <div className="text-xs text-[#55645e]">Sign in with Google to sync your habits across devices.</div>
+              <div className="text-xs text-[#55645e]">Sign in with Google to sync your routines across devices.</div>
             </div>
 
             <button onClick={onSignIn} className="btn-primary text-xs">
@@ -5268,7 +5268,7 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
             <div>
               <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">✨ Step 1 of 7 • Your Daily Role</span>
               <h2 className="text-2xl font-bold text-slate-900 mt-1">What do you mainly do?</h2>
-              <p className="text-sm text-slate-600 mt-1">This helps us tailor habit durations, reminders, and reset exercises to your role.</p>
+              <p className="text-sm text-slate-600 mt-1">This helps us tailor routine durations, reminders, and reset exercises to your role.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -5338,7 +5338,7 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
             <div>
               <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">✨ Step 3 of 7 • Work & Study Load</span>
               <h2 className="text-2xl font-bold text-slate-900 mt-1">How many hours do you usually spend studying/working?</h2>
-              <p className="text-sm text-slate-600 mt-1">We will scale habit targets so you never feel overwhelmed on demanding days.</p>
+              <p className="text-sm text-slate-600 mt-1">We will scale routine targets so you never feel overwhelmed on demanding days.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -5475,9 +5475,9 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
         {step === 7 && (
           <div className="space-y-6">
             <div>
-              <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">✨ Step 7 of 7 • Coping & Recharging Habits</span>
+              <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">✨ Step 7 of 7 • Coping & Recharging Routines</span>
               <h2 className="text-2xl font-bold text-slate-900 mt-1">What do you normally do when you feel stressed or mentally tired?</h2>
-              <p className="text-sm text-slate-600 mt-1">Select your instinctive coping habits. (Select all that apply)</p>
+              <p className="text-sm text-slate-600 mt-1">Select your instinctive coping routines. (Select all that apply)</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -5506,7 +5506,7 @@ function OnboardingWizard({ initialProfile, onComplete, onCancel }) {
 
             <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-900 text-xs flex items-center gap-2">
               <i data-lucide="shield-check" className="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
-              <span>Your lifestyle responses are saved securely to automatically personalize your habit difficulty and digital resets.</span>
+              <span>Your lifestyle responses are saved securely to automatically personalize your routine difficulty and digital resets.</span>
             </div>
           </div>
         )}
@@ -5547,7 +5547,7 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset,
     <div className="max-w-3xl mx-auto py-8 sm:py-16 text-center space-y-8 animate-fade-in">
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
         <i data-lucide="shield-check" className="w-4 h-4 text-emerald-600"></i>
-        <span>Adaptive Habits • Early Pressure Detection • Digital Well-Being</span>
+        <span>Adaptive Routines • Early Pressure Detection • Digital Well-Being</span>
       </div>
 
       <div className="space-y-4">
@@ -5555,7 +5555,7 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset,
           Achieve your goals without burning out.
         </h1>
         <p className="text-base sm:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-          Breathly learns your daily rhythm, detects early friction before stress spikes, and scales habit difficulty with Minimum Mode.
+          Breathly learns your daily rhythm, detects early friction before stress spikes, and scales routine difficulty with Minimum Mode.
         </p>
       </div>
 
@@ -5594,7 +5594,7 @@ function LandingView({ user, onStartOnboarding, onDirectDashboard, onQuickReset,
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
           <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-lg">⚡</div>
           <h3 className="font-bold text-sm text-slate-900">Minimum Mode (2-Min)</h3>
-          <p className="text-xs text-slate-500">Scale habit difficulty down on exhausting days so you never break identity streaks.</p>
+          <p className="text-xs text-slate-500">Scale routine difficulty down on exhausting days so you never break identity streaks.</p>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
@@ -5682,7 +5682,7 @@ function DailyCheckInCard({ profile, upcomingPressures, checkInStatus, onSave, o
             <p className="text-[11px] text-slate-600 mt-0.5">
               {isStressfulRecorded
                 ? 'Your answers indicate cognitive strain. A 2-minute bubble break can help reset working memory.'
-                : 'Habit difficulty and coaching signals are synced with your answers.'}
+                : 'Routine difficulty and coaching signals are synced with your answers.'}
             </p>
           </div>
         </div>
@@ -6796,7 +6796,7 @@ function DashboardView({
                 ? 'bg-[#ecfdf5] border-[#a7f3d0] text-[#065f46]'
                 : 'bg-[#fffbeb] hover:bg-[#fef3c7] border-[#fde68a] text-[#b45309]'
               }`}
-            title="Having a rough day? Switch today's habits to 2-minute versions to protect your streak"
+            title="Having a rough day? Switch today's routines to 2-minute versions to protect your streak"
           >
             <span>{isMinimumModeToday ? '🌱' : '🌧️'}</span>
             <span>{isMinimumModeToday ? 'Minimum Mode' : 'Rough Day'}</span>
@@ -6824,7 +6824,7 @@ function DashboardView({
                 Minimum Mode is active for today
               </p>
               <p className="text-[11px] sm:text-xs text-[#047857] mt-0.5">
-                All habits are switched to 2-minute versions so your streaks stay protected without the pressure. Switches off automatically tomorrow.
+                All routines are switched to 2-minute versions so your streaks stay protected without the pressure. Switches off automatically tomorrow.
               </p>
             </div>
           </div>
@@ -6850,7 +6850,7 @@ function DashboardView({
                 Looks like a heavy stretch. Want a lighter plan for a few days?
               </p>
               <p className="text-[11px] sm:text-xs text-[#b45309] mt-0.5">
-                We can switch today's habits to 2-minute micro-versions to keep your consistency intact without the overload.
+                We can switch today's routines to 2-minute micro-versions to keep your consistency intact without the overload.
               </p>
             </div>
           </div>
@@ -6914,10 +6914,10 @@ function DashboardView({
             <span className="text-xs">🌱</span>
           </div>
           <div className="text-sm sm:text-base font-bold text-[#18201d]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `Consistency: ${consistency?.effectiveCount ?? 0} of last 7 days`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `Consistency: ${consistency?.effectiveCount ?? 0} of last 7 days`}
           </div>
           <p className="text-[11px] text-[#55645e] truncate">
-            {consistency?.isEmpty ? 'Start a habit to build rhythm' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
+            {consistency?.isEmpty ? 'Start a routine to build rhythm' : `Grace days left this week: ${consistency?.graceDaysLeft ?? 2}`}
           </p>
         </div>
 
@@ -6998,18 +6998,18 @@ function DashboardView({
           {/* Metric 2: Habit Consistency */}
           <div className="metric-card-clean">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Habit Consistency</span>
+              <span className="text-[11px] font-bold text-[#82928b] uppercase tracking-wider">Routine Consistency</span>
               <div className="metric-icon-wrap bg-[#eef6f2] text-[#2d6a4f]">
                 <i data-lucide="check-circle-2" className="w-4 h-4"></i>
               </div>
             </div>
             <div>
               <div className="text-2xl font-extrabold text-[#18201d]">
-                {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.consistencyPercent ?? 0}%`}
+                {consistency?.isEmpty ? 'Add a routine to start' : `${consistency?.consistencyPercent ?? 0}%`}
               </div>
               <div className="text-[11px] text-[#55645e] mt-0.5">
                 {consistency?.isEmpty
-                  ? 'Add a habit to begin tracking'
+                  ? 'Add a routine to begin tracking'
                   : `${consistency?.effectiveCount ?? 0} of last 7 days • ${consistency?.graceDaysLeft ?? 2} grace days left`}
               </div>
             </div>
@@ -7162,7 +7162,7 @@ function DashboardView({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-[#18201d]">Today’s Adaptive Habits</h2>
+            <h2 className="text-lg font-bold text-[#18201d]">Today’s Adaptive Routines</h2>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e8f3ed] text-[#1b4332] border border-[#cfe1d7]">
               {completedCount} of {totalHabits} done
             </span>
@@ -7180,7 +7180,7 @@ function DashboardView({
 
             <button onClick={onAddHabit} className="btn-primary py-1.5 px-3 text-xs">
               <i data-lucide="plus" className="w-3.5 h-3.5"></i>
-              <span>Add Habit</span>
+              <span>Add Routine</span>
             </button>
           </div>
         </div>
@@ -7190,12 +7190,12 @@ function DashboardView({
             <div className="empty-state-icon">
               <i data-lucide="sparkles" className="w-6 h-6"></i>
             </div>
-            <div className="empty-state-title">No habits created yet</div>
+            <div className="empty-state-title">No routines created yet</div>
             <p className="empty-state-desc">
               Start with a simple 2-minute daily ritual. Breathly scales difficulty dynamically so you never fail.
             </p>
             <button onClick={onAddHabit} className="btn-primary text-xs mt-2">
-              <span>Create Your First Habit</span>
+              <span>Create Your First Routine</span>
             </button>
           </div>
         ) : (
@@ -7214,7 +7214,7 @@ function DashboardView({
                       <button
                         onClick={() => onToggleHabit(habit.id, isMinimumModeToday ? 'min' : 'full')}
                         className={`habit-checkbox ${isFull ? 'checked-full' : isMin ? 'checked-min' : ''}`}
-                        title={isFull || isMin ? 'Marked complete — tap to unmark or review' : 'Click to start habit timer'}
+                        title={isFull || isMin ? 'Marked complete — tap to unmark or review' : 'Click to start routine timer'}
                       >
                         {(isFull || isMin) ? (
                           <i data-lucide="check" className="w-3.5 h-3.5 text-white"></i>
@@ -7258,7 +7258,7 @@ function DashboardView({
                       <button
                         onClick={() => onEditHabit(habit)}
                         className="p-1 text-[#82928b] hover:text-[#18201d] rounded-lg transition-colors"
-                        title="Edit Habit"
+                        title="Edit Routine"
                       >
                         <i data-lucide="more-horizontal" className="w-4 h-4"></i>
                       </button>
@@ -8398,7 +8398,7 @@ function CoachView({
             value={inputText}
             disabled={isTyping}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isTyping ? "Coach is formulating guidance..." : "Ask your coach anything about focus, calm, habits, or fatigue..."}
+            placeholder={isTyping ? "Coach is formulating guidance..." : "Ask your coach anything about focus, calm, routines, or fatigue..."}
             className="flex-1 px-4 py-2.5 rounded-xl bg-[#f7f8f6] border border-[#e8eae6] text-[#18201d] text-xs focus:outline-none focus:border-[#1b4332] disabled:opacity-60"
           />
           <button
@@ -8437,14 +8437,14 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
           className="btn-primary py-1.5 px-3.5 text-xs"
         >
           <i data-lucide="plus" className="w-3.5 h-3.5"></i>
-          <span>Add Linked Habit</span>
+          <span>Add Linked Routine</span>
         </button>
       </div>
 
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Goal → Habit Hierarchy</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#18201d]">Goal → Routine Hierarchy</h1>
         <p className="text-xs sm:text-sm text-[#55645e] mt-1">
-          Daily micro-habits feed directly into your overarching life ambitions.
+          Daily micro-routines feed directly into your overarching life ambitions.
         </p>
       </div>
 
@@ -8462,7 +8462,7 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
                   </div>
                   <div>
                     <h3 className="font-extrabold text-base text-[#18201d]">{goal.title}</h3>
-                    <p className="text-xs text-[#55645e]">{linkedHabits.length} daily habits linked</p>
+                    <p className="text-xs text-[#55645e]">{linkedHabits.length} daily routines linked</p>
                   </div>
                 </div>
 
@@ -8488,7 +8488,7 @@ function GoalsView({ goals, habits, onBack, onAddHabit }) {
                   </div>
                 ))}
                 {linkedHabits.length === 0 && (
-                  <div className="text-xs text-[#82928b] italic p-3">No habits linked to this goal yet.</div>
+                  <div className="text-xs text-[#82928b] italic p-3">No routines linked to this goal yet.</div>
                 )}
               </div>
             </div>
@@ -8644,22 +8644,22 @@ function WeeklyReportView({
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="breathly-card p-4 space-y-1">
-          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Habit Consistency</span>
+          <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">Routine Consistency</span>
           <span className="text-2xl font-black text-[#2d6a4f]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.consistencyPercent ?? 0}%`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `${consistency?.consistencyPercent ?? 0}%`}
           </span>
           <span className="text-[10px] text-[#55645e]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} of 7 days • ${consistency?.graceDaysLeft ?? 2} grace days left`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `${consistency?.effectiveCount ?? 0} of 7 days • ${consistency?.graceDaysLeft ?? 2} grace days left`}
           </span>
         </div>
 
         <div className="breathly-card p-4 space-y-1">
           <span className="text-[#82928b] text-[11px] font-bold uppercase tracking-wider">7-Day Consistency</span>
           <span className="text-2xl font-black text-[#1b4332]">
-            {consistency?.isEmpty ? 'Add a habit to start' : `${consistency?.effectiveCount ?? 0} / 7 Days`}
+            {consistency?.isEmpty ? 'Add a routine to start' : `${consistency?.effectiveCount ?? 0} / 7 Days`}
           </span>
           <span className="text-[10px] text-[#55645e]">
-            {consistency?.isEmpty ? 'No habit history yet' : `Grace days left: ${consistency?.graceDaysLeft ?? 2}`}
+            {consistency?.isEmpty ? 'No routine history yet' : `Grace days left: ${consistency?.graceDaysLeft ?? 2}`}
           </span>
         </div>
 
@@ -8682,9 +8682,9 @@ function WeeklyReportView({
           <div>
             <h3 className="text-base font-extrabold text-[#18201d] flex items-center gap-2">
               <i data-lucide="scale" className="w-4 h-4 text-[#1b4332]"></i>
-              <span>Habit Investment vs. Distraction Balance</span>
+              <span>Routine Investment vs. Distraction Balance</span>
             </h3>
-            <p className="text-xs text-[#55645e]">Compare time invested in key habits against distraction volume</p>
+            <p className="text-xs text-[#55645e]">Compare time invested in key routines against distraction volume</p>
           </div>
           <span className="text-xs font-bold text-[#55645e]">Past 7 Days</span>
         </div>
@@ -11528,7 +11528,7 @@ function MiniGamesHubView({
                 <p className="text-slate-600 leading-relaxed">
                   {totalSessions >= 3
                     ? "Short rhythm activities appear to help you feel better after mentally demanding periods. Continuing to take structured 2-3 minute breaks protects your cognitive stamina."
-                    : "You have started building a habit of intentional short resets. After a few more sessions, your personalized recharge trends will appear here."}
+                    : "You have started building a routine of intentional short resets. After a few more sessions, your personalized recharge trends will appear here."}
                 </p>
               </div>
             </div>
@@ -11635,7 +11635,7 @@ function HabitModal({ goals, habit, onSave, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
       <div className="glass-panel max-w-md w-full rounded-3xl p-6 border border-slate-200 bg-white shadow-2xl space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900">{habit ? 'Edit Habit' : 'Create Adaptive Habit'}</h3>
+          <h3 className="text-lg font-bold text-slate-900">{habit ? 'Edit Routine' : 'Create Adaptive Routine'}</h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
             <i data-lucide="x" className="w-5 h-5"></i>
           </button>
@@ -11643,7 +11643,7 @@ function HabitModal({ goals, habit, onSave, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Habit Title</label>
+            <label className="block text-slate-700 font-semibold mb-1">Routine Title</label>
             <input
               type="text"
               required
@@ -11752,7 +11752,7 @@ function HabitModal({ goals, habit, onSave, onClose }) {
               type="submit"
               className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm"
             >
-              Save Habit
+              Save Routine
             </button>
           </div>
         </form>
@@ -11780,7 +11780,7 @@ function RoughDayConfirmModal({ isOpen, onConfirm, onClose }) {
             <span className="text-2xl">🌧️</span>
             <div>
               <h3 className="text-lg font-bold text-slate-900 leading-tight">Rough Day Protection</h3>
-              <p className="text-[11px] text-amber-700 font-medium">Protect your progress with 2-minute micro-habits</p>
+              <p className="text-[11px] text-amber-700 font-medium">Protect your progress with 2-minute micro-routines</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
@@ -11789,7 +11789,7 @@ function RoughDayConfirmModal({ isOpen, onConfirm, onClose }) {
         </div>
 
         <p className="text-sm text-slate-600 leading-relaxed">
-          Having a rough day? We'll switch today's habits to 2-minute versions so your streaks stay protected without the pressure.
+          Having a rough day? We'll switch today's routines to 2-minute versions so your streaks stay protected without the pressure.
         </p>
 
         <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
@@ -12341,14 +12341,14 @@ function PrivacyModal({ profile, appState, onWipeData, onClose }) {
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
             <h4 className="font-bold text-slate-900 mb-1">Local & Authenticated PostgreSQL Privacy</h4>
             <p>
-              Your habits, daily check-ins, and 7-question lifestyle answers belong solely to your verified Google session. We do not share or monetize personal well-being information.
+              Your routines, daily check-ins, and 7-question lifestyle answers belong solely to your verified Google session. We do not share or monetize personal well-being information.
             </p>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
             <h4 className="font-bold text-slate-900 mb-1">Non-Medical Digital Well-Being Platform</h4>
             <p>
-              The Early Pressure & Well-Being Index is a transparent behavioral pattern index derived from completed habits, sleep hours, and workload. It is not a psychological or medical diagnosis.
+              The Early Pressure & Well-Being Index is a transparent behavioral pattern index derived from completed routines, sleep hours, and workload. It is not a psychological or medical diagnosis.
             </p>
           </div>
 
@@ -12873,7 +12873,7 @@ function LoginView({ user, googleClientId, setGoogleClientId, onGoogleSuccess, o
 
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Welcome to Breathly</h2>
-          <p className="text-xs text-slate-600 mt-1">Sign in with Google to sync your adaptive habits & well-being baseline across all devices.</p>
+          <p className="text-xs text-slate-600 mt-1">Sign in with Google to sync your adaptive routines & well-being baseline across all devices.</p>
         </div>
 
         {authError && (
@@ -13075,7 +13075,7 @@ function FooterNav({ user, currentView, setCurrentView, onOpenSafety, onOpenPriv
   return (
     <footer className="border-t border-slate-200 py-6 px-4 text-center text-xs text-slate-500 bg-white/70 z-10">
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p>© 2026 Breathly — Personal Adaptive Habit & Digital Well-Being Coach.</p>
+        <p>© 2026 Breathly — Personal Adaptive Routine & Digital Well-Being Coach.</p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           {!user && (
             <button onClick={() => setCurrentView('login')} className="text-indigo-600 font-bold hover:underline">

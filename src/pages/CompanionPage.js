@@ -15,7 +15,7 @@
 
   const SUGGESTED_PROMPTS = [
     'I’m feeling overwhelmed with upcoming deadlines.',
-    'I skipped my habit today and feel disappointed.',
+    'I skipped my routine today and feel disappointed.',
     'My brain feels scattered. Help me refocus for 20 minutes.',
     'Guide me through a quick calming exercise before bed.'
   ];
